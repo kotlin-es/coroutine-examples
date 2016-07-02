@@ -30,7 +30,7 @@ class AsyncStream<T> {
         handlers += handler
         return deferred.promise
     }
-    fun <T2> mapAsync(map: (T) -> T2): AsyncStream<T2> {
+    fun <T2> map(map: (T) -> T2): AsyncStream<T2> {
         val emitter = AsyncStream.Emitter<T2>()
         this.listenAsync {
             emitter.emit(map(it))
@@ -39,7 +39,7 @@ class AsyncStream<T> {
         }
         return emitter.stream
     }
-    fun filterAsync(filter: (T) -> Boolean): AsyncStream<T> {
+    fun filter(filter: (T) -> Boolean): AsyncStream<T> {
         val emitter = AsyncStream.Emitter<T>()
         this.listenAsync {
             if (filter(it)) emitter.emit(it)

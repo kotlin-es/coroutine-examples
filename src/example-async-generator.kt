@@ -28,8 +28,8 @@ fun main(args: Array<String>) = EventLoop.main {
             println(it)
         }
         println("----")
-        val sumPromise = readUsers().mapAsync { it.age }.sumAsync()
-        val sumGreatOrEqualThan10Promise = readUsers().filterAsync { it.age >= 10 }.mapAsync { it.age }.sumAsync()
+        val sumPromise = readUsers().map { it.age }.sumAsync()
+        val sumGreatOrEqualThan10Promise = readUsers().filter { it.age >= 10 }.map { it.age }.sumAsync()
         println("Parallelized:")
         println("All ages summed: " + sumPromise.await())
         println("All ages (greater than 10) summed: " + sumGreatOrEqualThan10Promise.await())
