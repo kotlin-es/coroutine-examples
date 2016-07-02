@@ -10,7 +10,7 @@ fun <T> generateAsync(coroutine routine: AsyncStreamController<T>.() -> Continua
     return controller.stream
 }
 
-class AsyncStreamController<T> : Awaitable by AwaitBase() {
+class AsyncStreamController<T> : Awaitable by Awaitable.Mixin() {
     private val emitter = AsyncStream.Emitter<T>()
     val stream = emitter.stream
 

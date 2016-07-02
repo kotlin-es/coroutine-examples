@@ -10,7 +10,7 @@ fun <T> async(coroutine routine: AwaitAsyncController<T>.() -> Continuation<Unit
     return controller.promise
 }
 
-class AwaitAsyncController<T> : Awaitable by AwaitBase() {
+class AwaitAsyncController<T> : Awaitable by Awaitable.Mixin() {
     private val deferred = Promise.Deferred<T>()
     val promise = deferred.promise
 
