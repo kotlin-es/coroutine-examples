@@ -1,4 +1,4 @@
-package es.kotlin.collection
+package es.kotlin.collection.lazy
 
 import es.kotlin.collection.coroutine.generate
 

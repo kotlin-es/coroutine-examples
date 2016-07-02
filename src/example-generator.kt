@@ -1,6 +1,6 @@
 import es.kotlin.collection.coroutine.generate
-import es.kotlin.collection.lazyFilter
-import es.kotlin.collection.lazyMap
+import es.kotlin.collection.lazy.lazyFilter
+import es.kotlin.collection.lazy.lazyMap
 
 fun main(args: Array<String>) {
     //val infiniteList = generate<Int> { for (n in 0 .. 3) yield(n) }

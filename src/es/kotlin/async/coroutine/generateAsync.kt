@@ -10,23 +10,12 @@ fun <T> generateAsync(coroutine routine: AsyncStreamController<T>.() -> Continua
     return controller.stream
 }
 
-class AsyncStreamController<T> {
+class AsyncStreamController<T> : Awaitable by AwaitBase() {
     private val emitter = AsyncStream.Emitter<T>()
     val stream = emitter.stream
 
     fun emit(value: T) {
         emitter.emit(value)
-    }
-
-    suspend fun <T> Promise<T>.await(c: Continuation<T>) {
-        this.then(
-                resolved = {
-                    c.resume(it)
-                },
-                rejected = {
-                    c.resumeWithException(it)
-                }
-        )
     }
 
     suspend fun AsyncStream<T>.each(handler: (T) -> Unit, c: Continuation<Unit>) {

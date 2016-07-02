@@ -10,20 +10,9 @@ fun <T> async(coroutine routine: AwaitAsyncController<T>.() -> Continuation<Unit
     return controller.promise
 }
 
-class AwaitAsyncController<T> {
+class AwaitAsyncController<T> : Awaitable by AwaitBase() {
     private val deferred = Promise.Deferred<T>()
     val promise = deferred.promise
-
-    suspend fun <T> Promise<T>.await(c: Continuation<T>) {
-        this.then(
-                resolved = {
-                    c.resume(it)
-                },
-                rejected = {
-                    c.resumeWithException(it)
-                }
-        )
-    }
 
     suspend fun <T> AsyncStream<T>.each(handler: (T) -> Unit, c: Continuation<Unit>) {
         this.eachAsync(handler).await(c)

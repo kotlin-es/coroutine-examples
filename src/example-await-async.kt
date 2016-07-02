@@ -13,7 +13,7 @@ fun main(args: Array<String>) {
             println("Waiting $secondsToWait seconds...")
             for (n in 0 until secondsToWait) {
                 waitAsync(1.seconds).await()
-                println("One second passed!")
+                println("One second elapsed!")
             }
 
             println("Downloading url...")
@@ -45,10 +45,10 @@ fun main(args: Array<String>) {
 
 object MyNetTasks {
     fun downloadGoogleAsStringAsync() = async<String> {
-        downloadUrlAsync(URL("http://google.es/")).await()
+        downloadUrlAsync(URL("http://google.com/")).await()
     }
 
     fun downloadUnexistantUrlAsync() = async<String> {
-        downloadUrlAsync(URL("http://google.es/adasda/asdasd")).await()
+        downloadUrlAsync(URL("http://google.com/adasda/asdasd")).await()
     }
 }
