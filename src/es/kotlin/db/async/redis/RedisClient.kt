@@ -102,6 +102,6 @@ fun RedisClient.setAsync(key: String, value: String) = async<Unit> { commandAsyn
 fun RedisClient.getAsync(key: String) = async<Any> { commandAsync("get", key).await() }
 //fun RedisClient.getAsync(key: String) = commandAsync("get", key)
 
-fun RedisClient.existsAsync(key: String) = async<Boolean> { commandAsync("exists", key).await() == 1 }
+fun RedisClient.existsAsync(key: String) = async<Boolean> { commandAsync("exists", key).await() == 1L }
 
 class RedisResponseException(message: String) : RuntimeException(message)

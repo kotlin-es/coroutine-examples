@@ -11,8 +11,9 @@ import java.nio.channels.CompletionHandler
 import java.nio.charset.Charset
 import java.util.*
 
-class AsyncSocket {
-	private val sc = AsynchronousSocketChannel.open()
+class AsyncSocket(
+	private val sc: AsynchronousSocketChannel = AsynchronousSocketChannel.open()
+) {
 	private var _connected = false
 
 	fun connectAsync(host: String, port: Int) = connectAsync(InetSocketAddress(host, port))
@@ -62,7 +63,7 @@ class AsyncSocket {
 	}
 }
 
-fun AsyncSocket.readLineAsync(charset: Charset): Promise<String> = async<String> {
+fun AsyncSocket.readLineAsync(charset: Charset = Charsets.UTF_8): Promise<String> = async<String> {
 	val os = ByteArrayOutputStream()
 	// @TODO: optimize this!
 	while (true) {
