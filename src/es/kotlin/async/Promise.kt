@@ -44,6 +44,11 @@ class Promise<T> {
             this.value = value
             this.error = error
             this.done = true
+
+            if (error != null && this.rejectedHandlers.isEmpty()) {
+                error.printStackTrace()
+            }
+
             flush()
         }
         return this
