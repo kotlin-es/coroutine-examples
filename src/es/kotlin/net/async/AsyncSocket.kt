@@ -1,6 +1,8 @@
 package es.kotlin.net.async
 
 import es.kotlin.async.Promise
+import es.kotlin.async.coroutine.async
+import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.nio.ByteBuffer
@@ -36,7 +38,13 @@ class AsyncSocket {
         val out = ByteArray(size)
         val buffer = ByteBuffer.wrap(out)
         sc.read(buffer, this, object : CompletionHandler<Int, AsyncSocket> {
-            override fun completed(result: Int, attachment: AsyncSocket): Unit = run { deferred.resolve(Arrays.copyOf(out, result)) }
+            override fun completed(result: Int, attachment: AsyncSocket): Unit = run {
+                if (result < 0) {
+                    deferred.reject(RuntimeException("EOF"))
+                } else {
+                    deferred.resolve(Arrays.copyOf(out, result))
+                }
+            }
             override fun failed(exc: Throwable, attachment: AsyncSocket): Unit = run { deferred.reject(exc) }
         })
         return deferred.promise
@@ -54,6 +62,21 @@ class AsyncSocket {
     }
 }
 
-fun AsyncSocket.readLineAsync(charset: Charset): Promise<String> {
-    throw NotImplementedError()
+fun AsyncSocket.readLineAsync(charset: Charset): Promise<String> = async<String> {
+    val os = ByteArrayOutputStream()
+    // @TODO: optimize this!
+    while (true) {
+        val ba = readAsync(1).await()
+        os.write(ba[0].toInt())
+        if (ba[0].toChar() == '\n') break
+    }
+    val out = os.toByteArray().toString(charset)
+    val res = if (out.endsWith("\r\n")) {
+        out.substring(0, out.length - 2)
+    } else if (out.endsWith("\n")) {
+        out.substring(0, out.length - 1)
+    } else {
+        out
+    }
+    res
 }

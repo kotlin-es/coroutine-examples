@@ -42,7 +42,7 @@ class RedisClient(
         val type = firstLine[0]
         val data = firstLine.substring(1)
 
-        when (type) {
+        val out: Any = when (type) {
         // Status reply
             '+' -> data
         // Error reply
@@ -51,13 +51,27 @@ class RedisClient(
             ':' -> data.toLong()
         // Bulk replies
             '$' -> {
+                //println("data\n\n: '$data'")
                 val bytesToRead = data.toInt()
                 if (bytesToRead == -1) {
                     Unit
                 } else {
-                    val data2 = socket.readAsync(bytesToRead).await()
-                    socket.readAsync(2).await()
-                    data2.toString(charset)
+                    /////////////////////////////////////////////////////////
+                    // @BUG with git version:
+                    /////////////////////////////////////////////////////////
+                    // https://youtrack.jetbrains.com/issue/KT-12958
+                    /////////////////////////////////////////////////////////
+                    
+                    //val data2 = socket.readAsync(bytesToRead).await()
+                    //socket.readAsync(2).await()
+                    //data2.toString(charset)
+
+
+
+                    // @WORKS
+                    val data2 = socket.readAsync(bytesToRead + 2).await()
+                    val out = data2.toString(charset)
+                    out.substring(0, out.length - 2)
                 }
             }
         // Array reply
@@ -71,10 +85,17 @@ class RedisClient(
             }
             else -> throw RedisResponseException("Unknown param type '$type'")
         }
+        //println("out:$out")
+        out
     }
 }
 
-fun RedisClient.setAsync(key: String, value: String) = async<Unit> { commandAsync("set", key, value).await() }
+//fun RedisClient.setAsync(key: String, value: String) = async<Unit> { commandAsync("set", key, value).await() } // @BUG with git version? Should produce error because there is no available handleResult?
+fun RedisClient.setAsync(key: String, value: String) = async<Unit> { commandAsync("set", key, value).await(); Unit }
+//fun RedisClient.setAsync(key: String, value: String) = commandAsync("set", key, value)
+
+
 fun RedisClient.getAsync(key: String) = async<Any> { commandAsync("get", key).await() }
+//fun RedisClient.getAsync(key: String) = commandAsync("get", key)
 
 class RedisResponseException(message: String) : RuntimeException(message)
