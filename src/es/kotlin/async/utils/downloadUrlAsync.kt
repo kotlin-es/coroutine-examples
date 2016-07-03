@@ -3,7 +3,7 @@ package es.kotlin.async.utils
 import es.kotlin.async.Promise
 import java.net.URL
 
-// Todo, this should use asynchronous I/O
+// @TODO: this should use asynchronous I/O instead of a thread per request
 fun downloadUrlAsync(url: URL): Promise<String> {
     val deferred = Promise.Deferred<String>()
     Thread({

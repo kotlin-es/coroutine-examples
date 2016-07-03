@@ -29,7 +29,7 @@ class Promise<T> {
         if (error != null) {
             while (rejectedHandlers.isNotEmpty()) {
                 val handler = rejectedHandlers.removeFirst()
-                EventLoop.setImmediate { handler(error!!) }
+                EventLoop.setImmediate { handler(error ?: RuntimeException()) }
             }
         } else {
             while (resolvedHandlers.isNotEmpty()) {
@@ -41,6 +41,10 @@ class Promise<T> {
 
     internal fun complete(value: T?, error: Throwable?): Promise<T> {
         if (!this.done) {
+            if (value == null && error == null) {
+                throw RuntimeException("Invalid completion!")
+            }
+
             this.value = value
             this.error = error
             this.done = true

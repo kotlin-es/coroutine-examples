@@ -1,5 +1,7 @@
 package es.kotlin.async
 
+import es.kotlin.async.coroutine.AwaitAsyncController
+import es.kotlin.async.coroutine.async
 import java.util.concurrent.ConcurrentLinkedDeque
 
 object EventLoop {
@@ -8,6 +10,12 @@ object EventLoop {
     val handlers = ConcurrentLinkedDeque<() -> Unit>()
     var timerHandlers = ConcurrentLinkedDeque<TimerHandler>()
     var timerHandlersBack = ConcurrentLinkedDeque<TimerHandler>()
+
+    fun mainAsync(coroutine routine: AwaitAsyncController<Unit>.() -> Continuation<Unit>): Unit {
+        main {
+            async(routine)
+        }
+    }
 
     fun main(entry: (() -> Unit)? = null) {
         entry?.invoke()

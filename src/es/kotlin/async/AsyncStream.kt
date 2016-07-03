@@ -58,6 +58,17 @@ class AsyncStream<T> {
         }
         return out.promise
     }
+
+    fun toListAsync(): Promise<List<T>> {
+        val out = Promise.Deferred<List<T>>()
+        val result = arrayListOf<T>()
+        this.listenAsync {
+            result += it
+        }.then {
+            out.resolve(result)
+        }
+        return out.promise
+    }
 }
 
 //fun <T : Number> AsyncStream<T>.sumAsync(): Promise<T> {
