@@ -8,12 +8,12 @@ fun main(args: Array<String>) = EventLoop.mainAsync {
 	val port = 9090
 
 	println("Preparing...")
+	val charset = Charsets.UTF_8
 	val serverPromise = server.listen(port).eachAsync { client ->
 		println("Client connected!")
 		async<Unit> {
 			try {
 				while (true) {
-					val charset = Charsets.UTF_8
 					val line = client.readLineAsync(charset).await()
 					println("Client said: $line")
 					client.writeAsync(line.toByteArray(charset)).await()

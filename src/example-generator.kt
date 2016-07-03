@@ -6,9 +6,7 @@ fun main(args: Array<String>) {
     //val infiniteList = generate<Int> { for (n in 0 .. 3) yield(n) }
     val infiniteList = generate<Int> {
         var n = 0
-        while (true) {
-            yield(n++)
-        }
+        while (true) yield(n++)
     }
 
     for (i in infiniteList.lazyFilter { it % 2 == 0 }.lazyMap { -it }) {
