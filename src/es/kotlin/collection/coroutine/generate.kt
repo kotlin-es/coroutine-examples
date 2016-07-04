@@ -5,11 +5,14 @@ fun <T> generate(coroutine routine: GeneratorController<T>.() -> Continuation<Un
         override fun iterator(): Iterator<T> {
             return object : Iterator<T> {
                 val controller = GeneratorController<T>()
-                val continuation = routine(controller)
+
+                init {
+                    controller.lastContinuation = routine(controller)
+                }
 
                 private fun prepare() {
                     if (controller.lastValue == null) {
-                        continuation.resume(Unit)
+                        controller.lastContinuation.resume(Unit)
                     }
                 }
 
@@ -31,10 +34,12 @@ fun <T> generate(coroutine routine: GeneratorController<T>.() -> Continuation<Un
 
 class GeneratorController<T> {
     var lastValue: T? = null
+    lateinit var lastContinuation: Continuation<Unit>
     var done: Boolean = false
 
     suspend fun yield(value:T, x: Continuation<Unit>) {
         lastValue = value
+        lastContinuation = x
     }
     operator fun handleResult(x: Unit, y: Continuation<Nothing>) {
         done = true
