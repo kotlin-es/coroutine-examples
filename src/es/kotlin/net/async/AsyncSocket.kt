@@ -16,6 +16,14 @@ class AsyncSocket(
 ) {
 	private var _connected = false
 
+	companion object {
+		fun createAndConnectAsync(host: String, port: Int, bufferSize: Int = 1024): Promise<AsyncSocket> = async {
+			val socket = AsyncSocket()
+			socket.connectAsync(host, port).await()
+			socket
+		}
+	}
+
 	fun connectAsync(host: String, port: Int) = connectAsync(InetSocketAddress(host, port))
 
 	fun connectAsync(remote: SocketAddress): Promise<Unit> {
@@ -60,6 +68,11 @@ class AsyncSocket(
 
 		})
 		return deferred.promise
+	}
+
+	fun closeAsync(): Promise<Unit> {
+		sc.close()
+		return Promise.resolved(Unit)
 	}
 }
 
