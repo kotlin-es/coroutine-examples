@@ -15,6 +15,9 @@ fun main(args: Array<String>) = EventLoop.mainAsync {
 	TicTacToe.serverAsync().await()
 }
 
+// @TODO: Wishlist!
+//suspend fun AsyncSocket.writeLine(line: String, c: Continuation<Unit>) = this.writeAsync("$line\r\n".toByteArray(charset)).then(c)
+
 object TicTacToe {
 	val charset = Charsets.UTF_8
 	fun AsyncSocket.writeLineAsync(line: String) = this.writeAsync("$line\r\n".toByteArray(charset))
@@ -40,7 +43,7 @@ object TicTacToe {
 				val player1 = listenConnectionAsync().await()
 				player1.writeLineAsync("Waiting for other player to start!").await()
 				val player2 = listenConnectionAsync().await()
-				val matchPromise = matchAsync(player1, player2) // no wait!
+				val matchPromise = matchAsync(player1, player2) // no wait so we continue creating matches while game is running!
 				matchPromise.then { result ->
 					println("Match resolved with $result")
 				}

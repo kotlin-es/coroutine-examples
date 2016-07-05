@@ -75,6 +75,13 @@ class Promise<T> {
         flush()
     }
 
+    fun then(c: Continuation<T>) {
+        this.then(
+            resolved = { c.resume(it) },
+            rejected = { c.resumeWithException(it) }
+        )
+    }
+
     fun cancel(reason: Throwable) {
         for (handler in cancelHandlers) handler(reason)
         complete(null, reason)
