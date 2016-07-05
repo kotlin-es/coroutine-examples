@@ -65,7 +65,6 @@ class RedisClient(
 					//socket.readAsync(2).await()
 					//data2.toString(charset)
 
-
 					// @WORKS
 					val data2 = socket.readAsync(bytesToRead + 2).await()
 					val out = data2.toString(charset)

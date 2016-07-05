@@ -6,6 +6,7 @@ class AsyncStream<T> {
     typealias Handler = (T) -> Unit
     private val deferred = Promise.Deferred<Unit>()
     private val handlers = arrayListOf<Handler>()
+    private val handlersCopy = arrayListOf<Handler>()
 
     class Emitter<T> {
         val stream = AsyncStream<T>()
@@ -17,7 +18,8 @@ class AsyncStream<T> {
             if (stream.handlers.isNotEmpty()) {
                 while (buffer.isNotEmpty()) {
                     val item = buffer.removeFirst()
-                    for (handler in stream.handlers) handler(item)
+                    stream.handlersCopy.addAll(stream.handlers)
+                    for (handler in stream.handlersCopy) handler(item)
                 }
             }
         }
@@ -29,6 +31,17 @@ class AsyncStream<T> {
     fun listenAsync(handler: Handler): Promise<Unit> {
         handlers += handler
         return deferred.promise
+    }
+    fun readOneAsync(): Promise<T> {
+        val out = Promise.Deferred<T>()
+        var handler: Handler? = null
+        handler = { value: T ->
+            handlers.remove(handler)
+            out.resolve(value)
+            Unit
+        }
+        handlers += handler
+        return out.promise
     }
     fun <T2> map(map: (T) -> T2): AsyncStream<T2> {
         val emitter = AsyncStream.Emitter<T2>()

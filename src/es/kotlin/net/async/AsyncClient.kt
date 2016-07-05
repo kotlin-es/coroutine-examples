@@ -16,6 +16,8 @@ class AsyncSocket(
 ) {
 	private var _connected = false
 
+	val millisecondsTimeout = 60 * 1000L
+
 	companion object {
 		fun createAndConnectAsync(host: String, port: Int, bufferSize: Int = 1024): Promise<AsyncSocket> = async {
 			val socket = AsyncSocket()
@@ -56,6 +58,10 @@ class AsyncSocket(
 
 			override fun failed(exc: Throwable, attachment: AsyncSocket): Unit = run { deferred.reject(exc) }
 		})
+		deferred.onCancel {
+			// @TODO: Cancel reading!
+			println("@TODO: Cancel reading!")
+		}
 		return deferred.promise
 	}
 
@@ -65,8 +71,11 @@ class AsyncSocket(
 		sc.write(buffer, this, object : CompletionHandler<Int, AsyncSocket> {
 			override fun completed(result: Int, attachment: AsyncSocket): Unit = run { deferred.resolve(Unit) }
 			override fun failed(exc: Throwable, attachment: AsyncSocket): Unit = run { deferred.reject(exc) }
-
 		})
+		deferred.onCancel {
+			// @TODO: Cancel writting!
+			println("@TODO: Cancel writting!")
+		}
 		return deferred.promise
 	}
 

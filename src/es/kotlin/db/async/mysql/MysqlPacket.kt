@@ -1,7 +1,10 @@
 package es.kotlin.db.async.mysql
 
+import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
 import es.kotlin.net.async.AsyncSocket
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 
 /*
@@ -10,7 +13,7 @@ class MysqlPacket(
 	val PacketNumber: Byte,
 	val ByteData: ByteArray = ByteArray(0)
 ) {
-	val Stream = MemoryStream(ByteData)
+	val Stream = ByteArrayInputStream(ByteData)
 	val StreamReader = StreamReader (Stream)
 
 	val length: Int get() = Stream.size
@@ -19,17 +22,13 @@ class MysqlPacket(
 	fun ReadStringzMemoryStream(): MemoryStream {
 		var Buffer = MemoryStream ()
 		while (Stream.Position < Stream.Length) {
-			val c = Stream . ReadByte ()
+			val c = Stream.read() and 0xFF
 			if (c == -1) break
 			if (c == 0) break
-			Buffer.WriteByte((byte) c)
+			Buffer.WriteByte(c.toByte())
 		}
 		Buffer.Position = 0
 		return Buffer
-	}
-
-	fun GetPacketBytes(): ByteArray {
-		return this.Stream.ToArray()
 	}
 
 	fun ReadLengthCodedStringBytes(): ByteArray? {
@@ -47,32 +46,32 @@ class MysqlPacket(
 	}
 
 	fun Reset() {
-		Stream.Position = 0
+		Stream.reset()
 	}
 
 	fun ReadStringzBytes(): ByteArray {
-		var Buffer = ReadStringzMemoryStream()
-		var Out = ByteArray(Buffer.Length)
+		val Buffer = ReadStringzMemoryStream()
+		val Out = ByteArray(Buffer.Length)
 		Buffer.Read(Out, 0, Out.Length)
 		return Out
 	}
 
 	fun ReadStringz(Encoding: Charset): String {
 		var Buffer = ReadStringzMemoryStream()
-		return Encoding.GetString(Buffer.GetBuffer(), 0, (int) Buffer . Length)
+		return Encoding.GetString(Buffer.GetBuffer(), 0, Buffer.Length.toInt())
 	}
 
 	fun ReadByte(): Byte {
-		return Stream.ReadByte()
+		return Stream.read().toByte()
 	}
 
 	fun ReadUByte(): Int {
-		return Stream.ReadByte() and 0xFF
+		return Stream.read() and 0xFF
 	}
 
 	fun ReadBytes(Count: Int): ByteArray {
 		val Bytes = ByteArray(Count)
-		Stream.Read(Bytes, 0, Count)
+		Stream.read(Bytes, 0, Count)
 		return Bytes
 	}
 
@@ -128,12 +127,12 @@ class MysqlPacket(
 		Unit
 	}
 
-	fun WriteNumber(BytesCount: Int, Value: Int) = async
-	{
-		for (int n = 0; n < BytesCount; n++)
+	fun WriteNumber(BytesCount: Int, Value: Int) {
+		var value = Value
+		for (n in 0 until BytesCount)
 		{
-			this.Stream.WriteByte((byte) Value)
-			Value > >= 8
+			this.Stream.WriteByte(Value.toByte())
+			value = value ushr 8
 		}
 	}
 
@@ -149,39 +148,31 @@ class MysqlPacket(
 	fun WriteNullTerminated(string: String?, encoding: Charset) = WriteNullTerminated(string?.toByteArray(encoding))
 
 	fun WriteLengthCodedInt(Value: Long) {
-		var Count = 0
+		var value = Value
 
-		if (Value <= 250) {
-			Count = 1
-		}
-		// 16 bits
-		else if (Value <= 0xffff) {
-			this.Stream.WriteByte(252)
-			Count = 2
-		}
-		// 24 bits
-		else if (Value <= 0xffffff) {
-			this.Stream.WriteByte(253)
-			Count = 3
-		}
-		// 64 bits
-		else {
-			this.Stream.WriteByte(254)
-			Count = 8
+		var Count = if (value <= 250) 1 // 8 bits
+		else if (value <= 0xffff) 2 // 16 bits
+		else if (value <= 0xffffff) 3 // 24 bits
+		else 8 // 64 bits
+
+		when (Count) {
+			2 -> this.Stream.WriteByte(252)
+			3 -> this.Stream.WriteByte(253)
+			8 -> this.Stream.WriteByte(254)
 		}
 
 		while (Count-- > 0) {
-			this.Stream.WriteByte((byte)(Value))
-			Value > >= 8
+			this.Stream.WriteByte((byte)(value))
+			value = value ushr 8
 		}
 	}
 
 	fun WriteLengthCodedString(Value: ByteArray) {
-		WriteLengthCodedInt((uint) Value . Length)
-		this.Stream.Write(Value, 0, Value.Length)
+		WriteLengthCodedInt(Value.size.toLong())
+		this.Stream.Write(Value, 0, Value.size)
 	}
 
-	fun WryteBytes(Value: ByteArray, Offset: Int = 0, Length: Int = Value.Length) {
+	fun WryteBytes(Value: ByteArray, Offset: Int = 0, Length: Int = Value.size) {
 		this.Stream.Write(Value, Offset, Length)
 	}
 }

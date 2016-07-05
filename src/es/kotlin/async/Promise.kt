@@ -1,6 +1,7 @@
 package es.kotlin.async
 
 import java.util.*
+import java.util.concurrent.TimeoutException
 
 class Promise<T> {
     typealias ResolvedHandler = (T) -> Unit
@@ -11,6 +12,10 @@ class Promise<T> {
 
         fun resolve(value: T) = promise.complete(value, null)
         fun reject(error: Throwable) = promise.complete(null, error)
+
+        fun onCancel(handler: (Throwable) -> Unit) {
+            promise.cancelHandlers += handler
+        }
     }
 
     companion object {
@@ -23,6 +28,7 @@ class Promise<T> {
     private var done: Boolean = false
     private val resolvedHandlers = LinkedList<ResolvedHandler>()
     private val rejectedHandlers = LinkedList<RejectedHandler>()
+    private val cancelHandlers = LinkedList<RejectedHandler>()
 
     private fun flush() {
         if (!done) return
@@ -67,5 +73,10 @@ class Promise<T> {
         resolvedHandlers += resolved
         rejectedHandlers += rejected
         flush()
+    }
+
+    fun cancel(reason: Throwable) {
+        for (handler in cancelHandlers) handler(reason)
+        complete(null, reason)
     }
 }

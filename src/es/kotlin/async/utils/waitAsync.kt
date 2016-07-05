@@ -13,8 +13,11 @@ fun waitAsync(time: TimeSpan) = waitAsync(time, Unit)
 
 fun <T> waitAsync(time: TimeSpan, result: T): Promise<T> {
 	val deferred = Promise.Deferred<T>()
-	EventLoop.setTimeout(time.milliseconds.toInt()) {
+	val timer = EventLoop.setTimeout(time.milliseconds.toInt()) {
 		if (result is Throwable) deferred.reject(result) else deferred.resolve(result)
+	}
+	deferred.onCancel {
+		timer.dispose()
 	}
 	return deferred.promise
 }
