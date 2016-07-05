@@ -6,12 +6,11 @@ import es.kotlin.net.async.AsyncServer
 import es.kotlin.net.async.AsyncSocket
 import es.kotlin.net.async.readLineAsync
 import es.kotlin.time.seconds
-import jdk.nashorn.internal.ir.ContinueNode
 import java.util.*
 import java.util.concurrent.TimeoutException
 
 // Example showing how to create a tic-tac-toe server without a explicit state machine
-// Using await-async and it's state as implicit (and cool) state machine
+// Using await-async coroutine as it's state as an implicit (and cool) state machine
 fun main(args: Array<String>) = EventLoop.mainAsync {
 	TicTacToe.serverAsync().await()
 }
@@ -41,7 +40,10 @@ object TicTacToe {
 				val player1 = listenConnectionAsync().await()
 				player1.writeLineAsync("Waiting for other player to start!").await()
 				val player2 = listenConnectionAsync().await()
-				matchAsync(player1, player2) // no wait!
+				val matchPromise = matchAsync(player1, player2) // no wait!
+				matchPromise.then { result ->
+					println("Match resolved with $result")
+				}
 			} catch (t: Throwable) {
 				println("Match-making failed! Start over!")
 				t.printStackTrace()
@@ -49,7 +51,7 @@ object TicTacToe {
 		}
 	}
 
-	fun matchAsync(player1: AsyncSocket, player2: AsyncSocket) = async<Unit> {
+	fun matchAsync(player1: AsyncSocket, player2: AsyncSocket) = async<GameResult> {
 		class PlayerInfo(val id: Int, val chip: Char)
 
 		var turn = 0
@@ -85,6 +87,8 @@ object TicTacToe {
 			pos
 		}
 
+		var result: GameResult
+
 		ingame@while (true) {
 			players.writeLineAsync("Turn: $turn").await()
 			board.sendBoardAsync(players).await()
@@ -100,15 +104,15 @@ object TicTacToe {
 			currentPlayer.writeLineAsync("Placed at $pos!").await()
 			board[pos] = currentPlayer.info().chip
 
-			val status = board.checkStatus()
-			when (status) {
-				is Status.Playing -> {
+			result = board.checkResult()
+			when (result) {
+				is GameResult.Playing -> {
 					turn++
 					continue@ingame
 				}
-				is Status.Draw, is Status.Win -> {
+				is GameResult.Draw, is GameResult.Win -> {
 					board.sendBoardAsync(players).await()
-					players.writeLineAsync("$status").await()
+					players.writeLineAsync("$result").await()
 					break@ingame
 				}
 			}
@@ -122,6 +126,8 @@ object TicTacToe {
 
 			}
 		}
+
+		result
 	}
 
 	data class Point(val x: Int, val y: Int)
@@ -163,14 +169,14 @@ object TicTacToe {
 
 		fun getOneAvailablePositions(): Point = getAvailablePositions()[random]
 
-		fun getRow(y:Int) = (0 until 3).map { x -> Point(x, y) }
-		fun getCol(x:Int) = (0 until 3).map { y -> Point(x, y) }
+		fun getRow(y: Int) = (0 until 3).map { x -> Point(x, y) }
+		fun getCol(x: Int) = (0 until 3).map { y -> Point(x, y) }
 		fun getDiagonal1() = (0 until 3).map { n -> Point(n, n) }
 		fun getDiagonal2() = (0 until 3).map { n -> Point(2 - n, n) }
 
 		fun List<Char>.getType(): Char = if (this.all { it == this[0] }) this[0] else ' '
 
-		fun checkStatus(): Status {
+		fun checkResult(): GameResult {
 			val pointsList = generate<List<Point>> {
 				for (n in 0 until 3) {
 					yield(getRow(n))
@@ -183,22 +189,22 @@ object TicTacToe {
 			for (points in pointsList) {
 				val type = points.map { this[it] }.getType()
 				if (type != ' ') {
-					return Status.Win(type, points)
+					return GameResult.Win(type, points)
 				}
 			}
 
 			return if (getAllPositions().map { this[it] }.all { it != ' ' }) {
-				Status.Draw
+				GameResult.Draw
 			} else {
-				Status.Playing
+				GameResult.Playing
 			}
 		}
 	}
 
-	sealed class Status {
-		object Playing : Status()
-		object Draw : Status()
-		data class Win(val type: Char, val positions: List<Point>) : Status()
+	sealed class GameResult {
+		object Playing : GameResult()
+		object Draw : GameResult()
+		data class Win(val type: Char, val positions: List<Point>) : GameResult()
 	}
 
 	operator fun <T> Iterable<T>.get(random: Random): T {
