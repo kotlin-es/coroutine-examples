@@ -61,6 +61,26 @@ class AsyncStream<T> {
         }
         return emitter.stream
     }
+    fun chunks(chunkSize: Int): AsyncStream<List<T>> {
+        val emitter = AsyncStream.Emitter<List<T>>()
+
+        var buffer = arrayListOf<T>()
+
+        fun flush() {
+            if (buffer.isNotEmpty()) {
+                emitter.emit(buffer)
+                buffer = arrayListOf<T>()
+            }
+        }
+        this.listenAsync {
+            buffer.add(it)
+            if (buffer.size >= chunkSize) flush()
+        }.then {
+            flush()
+            emitter.close()
+        }
+        return emitter.stream
+    }
     fun <R> foldAsync(initial: R, fold: (R, T) -> R): Promise<R> {
         val out = Promise.Deferred<R>()
         var result = initial
