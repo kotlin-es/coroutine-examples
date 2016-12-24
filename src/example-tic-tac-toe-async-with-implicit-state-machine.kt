@@ -3,6 +3,7 @@ import es.kotlin.async.coroutine.*
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
+import es.kotlin.net.async.readLine
 import es.kotlin.net.async.readLineAsync
 import es.kotlin.time.seconds
 import java.util.*
@@ -73,7 +74,7 @@ object TicTacToe {
 		suspend private fun readMove(currentPlayer: AsyncClient) = asyncFun {
 			var pos: Point
 			selectmove@ while (true) {
-				val line = currentPlayer.readLineAsync(charset).awaitWithTimeout(moveTimeout)
+				val line = limitedInTime(moveTimeout) { currentPlayer.readLine(charset) }
 				try {
 					val x = ("" + line[0]).toInt()
 					val y = ("" + line[1]).toInt()

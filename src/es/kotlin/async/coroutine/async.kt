@@ -25,19 +25,18 @@ fun <T> async(routine: suspend () -> T): Promise<T> {
 
 suspend fun <T> await(p: Promise<T>) = suspendCoroutine<T>(p::then)
 
-suspend fun <T> Promise<T> .awaitWithTimeout(timeout: TimeSpan) = suspendCoroutine<T> { c ->
-	val p = this@awaitWithTimeout
-	val timer = EventLoop.setTimeout(timeout.milliseconds.toInt()) {
-		p.cancel(TimeoutException())
+suspend fun <T> limitedInTime(timeout: TimeSpan, callback: suspend () -> T) = suspendCoroutine<T> { c ->
+	EventLoop.setTimeout(timeout.milliseconds.toInt()) {
+		c.resumeWithException(TimeoutException())
 	}
-	p.then(
-		resolved = {
-			timer.dispose()
-			c.resume(it)
-		},
-		rejected = {
-			timer.dispose()
-			c.resumeWithException(it)
+
+	callback.startCoroutine(object : Continuation<T> {
+		override fun resume(value: T) {
+			c.resume(value)
 		}
-	)
+
+		override fun resumeWithException(exception: Throwable) {
+			c.resumeWithException(exception)
+		}
+	})
 }
