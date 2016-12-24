@@ -12,7 +12,7 @@ import java.util.concurrent.TimeoutException
 // Example showing how to create a tic-tac-toe server without a explicit state machine
 // Using await-async coroutine as it's state as an implicit (and cool) state machine
 fun main(args: Array<String>) = EventLoop.mainAsync {
-	await(TicTacToe.serverAsync())
+	TicTacToe.server()
 }
 
 // @TODO: Wishlist!
@@ -34,7 +34,7 @@ object TicTacToe {
 		player
 	}
 
-	fun serverAsync() = async<Unit> {
+	suspend fun server() = asyncFun {
 		connections = server.listen(port).iterator()
 
 		println("Listeining at ... $port")
