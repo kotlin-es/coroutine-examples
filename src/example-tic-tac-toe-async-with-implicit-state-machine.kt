@@ -1,5 +1,4 @@
 import es.kotlin.async.EventLoop
-import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.*
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
@@ -14,9 +13,6 @@ import java.util.concurrent.TimeoutException
 fun main(args: Array<String>) = EventLoop.mainAsync {
 	TicTacToe.server()
 }
-
-// @TODO: Wishlist!
-//suspend fun AsyncSocket.writeLine(line: String, c: Continuation<Unit>) = this.writeAsync("$line\r\n".toByteArray(charset)).then(c)
 
 object TicTacToe {
 	val charset = Charsets.UTF_8
@@ -45,8 +41,9 @@ object TicTacToe {
 				val player1 = listenConnection()
 				player1.writeLine("Waiting for other player to start!")
 				val player2 = listenConnection()
-				async { // no wait so we continue creating matches while game is running!
-					val result = match(player1, player2)
+				async {
+					// no wait so we continue creating matches while game is running!
+					val result = Match(player1, player2)
 					println("Match resolved with $result")
 				}
 			} catch (t: Throwable) {
@@ -56,7 +53,12 @@ object TicTacToe {
 		}
 	}
 
-	suspend fun match(player1: AsyncClient, player2: AsyncClient) = asyncFun {
+	class Match private constructor(val player1: AsyncClient, val player2: AsyncClient, val dummy: Boolean) {
+		// Trick!
+		companion object {
+			operator suspend fun invoke(player1: AsyncClient, player2: AsyncClient) = Match(player1, player2, true).start()
+		}
+
 		class PlayerInfo(val id: Int, val chip: Char)
 
 		var turn = 0
@@ -66,11 +68,9 @@ object TicTacToe {
 
 		val board = Board()
 
-		players.writeLine("tic-tac-toe: Game started!")
-
 		val moveTimeout = 1000.seconds // Almost disable timeout because socket should cancel reading!
 
-		suspend fun readMove(currentPlayer: AsyncClient) = asyncFun {
+		suspend private fun readMove(currentPlayer: AsyncClient) = asyncFun {
 			var pos: Point
 			selectmove@ while (true) {
 				val line = currentPlayer.readLineAsync(charset).awaitWithTimeout(moveTimeout)
@@ -92,47 +92,51 @@ object TicTacToe {
 			pos
 		}
 
-		var result: GameResult
+		suspend fun start() = asyncFun {
+			players.writeLine("tic-tac-toe: Game started!")
 
-		ingame@ while (true) {
-			players.writeLine("Turn: $turn")
-			board.sendBoard(players)
-			val currentPlayer = players[turn % players.size]
-			currentPlayer.writeLine("Your turn! You have $moveTimeout to move, or a move will perform automatically!")
+			var result: GameResult
 
-			val pos = try {
-				readMove(currentPlayer)
-			} catch (e: TimeoutException) {
-				board.getOneAvailablePositions()
-			}
+			ingame@ while (true) {
+				players.writeLine("Turn: $turn")
+				board.sendBoard(players)
+				val currentPlayer = players[turn % players.size]
+				currentPlayer.writeLine("Your turn! You have $moveTimeout to move, or a move will perform automatically!")
 
-			currentPlayer.writeLine("Placed at $pos!")
-			board[pos] = currentPlayer.info().chip
-
-			result = board.checkResult()
-			when (result) {
-				is GameResult.Playing -> {
-					turn++
-					continue@ingame
+				val pos = try {
+					readMove(currentPlayer)
+				} catch (e: TimeoutException) {
+					board.getOneAvailablePositions()
 				}
-				is GameResult.Draw, is GameResult.Win -> {
-					board.sendBoard(players)
-					players.writeLine("$result")
-					break@ingame
+
+				currentPlayer.writeLine("Placed at $pos!")
+				board[pos] = currentPlayer.info().chip
+
+				result = board.checkResult()
+				when (result) {
+					is GameResult.Playing -> {
+						turn++
+						continue@ingame
+					}
+					is GameResult.Draw, is GameResult.Win -> {
+						board.sendBoard(players)
+						players.writeLine("$result")
+						break@ingame
+					}
 				}
 			}
-		}
 
-		players.writeLine("End of game!")
-		for (player in players) {
-			try {
-				await(player.closeAsync())
-			} catch (t: Throwable) {
+			players.writeLine("End of game!")
+			for (player in players) {
+				try {
+					await(player.closeAsync())
+				} catch (t: Throwable) {
 
+				}
 			}
-		}
 
-		result
+			result
+		}
 	}
 
 	data class Point(val x: Int, val y: Int)
