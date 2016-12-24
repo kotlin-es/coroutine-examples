@@ -1,11 +1,10 @@
 package es.kotlin.db.async.redis
 
-import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
 import es.kotlin.async.coroutine.asyncFun
 import es.kotlin.async.coroutine.await
 import es.kotlin.net.async.AsyncClient
-import es.kotlin.net.async.readLineAsync
+import es.kotlin.net.async.readLine
 
 // Ported from by .NET code: https://github.com/soywiz/NodeNetAsync/blob/master/NodeNetAsync/Db/Redis/RedisClient.cs
 class RedisClient(
@@ -16,9 +15,7 @@ class RedisClient(
 	private val socket = AsyncClient()
 
 	suspend private fun ensureConnect() = asyncFun {
-		if (!socket.connected) {
-			await(socket.connectAsync(host, port))
-		}
+		if (!socket.connected) socket.connect(host, port)
 	}
 
 	suspend fun command(vararg args: String) = asyncFun {
@@ -32,12 +29,12 @@ class RedisClient(
 
 		val data = cmd.toByteArray(charset)
 		ensureConnect()
-		socket.writeAsync(data)
+		socket.write(data)
 		readValue()
 	}
 
 	suspend private fun readValue(): Any = async {
-		val firstLine = await(socket.readLineAsync(charset))
+		val firstLine = socket.readLine(charset)
 		val type = firstLine[0]
 		val data = firstLine.substring(1)
 
@@ -66,7 +63,7 @@ class RedisClient(
 					//data2.toString(charset)
 
 					// @WORKS
-					val data2 = await(socket.readAsync(bytesToRead + 2))
+					val data2 = socket.read(bytesToRead + 2)
 					val out = data2.toString(charset)
 					out.substring(0, out.length - 2)
 				}

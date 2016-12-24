@@ -1,10 +1,12 @@
 import es.kotlin.async.EventLoop
-import es.kotlin.async.coroutine.*
+import es.kotlin.async.coroutine.AsyncIterator
+import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.asyncFun
+import es.kotlin.async.coroutine.limitedInTime
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
 import es.kotlin.net.async.readLine
-import es.kotlin.net.async.readLineAsync
 import es.kotlin.time.seconds
 import java.util.*
 import java.util.concurrent.TimeoutException
@@ -18,7 +20,7 @@ fun main(args: Array<String>) = EventLoop.mainAsync {
 object TicTacToe {
 	val charset = Charsets.UTF_8
 	suspend fun AsyncClient.writeLine(line: String) = this.write("$line\r\n".toByteArray(charset))
-	suspend fun Iterable<AsyncClient>.writeLine(line: String) = async<Unit> { for (s in this) s.writeLine(line) }
+	suspend fun Iterable<AsyncClient>.writeLine(line: String) = asyncFun { for (s in this) s.writeLine(line) }
 
 	val server = AsyncServer()
 	val port = 9090
@@ -69,7 +71,8 @@ object TicTacToe {
 
 		val board = Board()
 
-		val moveTimeout = 1000.seconds // Almost disable timeout because socket should cancel reading!
+		//val moveTimeout = 1000.seconds // Almost disable timeout because socket should cancel reading!
+		val moveTimeout = 10.seconds // Almost disable timeout because socket should cancel reading!
 
 		suspend private fun readMove(currentPlayer: AsyncClient) = asyncFun {
 			var pos: Point
@@ -130,7 +133,7 @@ object TicTacToe {
 			players.writeLine("End of game!")
 			for (player in players) {
 				try {
-					await(player.closeAsync())
+					player.close()
 				} catch (t: Throwable) {
 
 				}
@@ -187,7 +190,7 @@ object TicTacToe {
 		fun List<Char>.getType(): Char = if (this.all { it == this[0] }) this[0] else ' '
 
 		fun checkResult(): GameResult {
-			val pointsList = generate<List<Point>> {
+			val pointsList = generate {
 				for (n in 0 until 3) {
 					yield(getRow(n))
 					yield(getCol(n))
@@ -219,7 +222,7 @@ object TicTacToe {
 
 	operator fun <T> Iterable<T>.get(random: Random): T {
 		val list = this.toList()
-		return list[random.nextInt() % list.size]
+		return list[random.nextInt(list.size)]
 	}
 }
 

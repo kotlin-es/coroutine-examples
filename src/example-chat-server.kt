@@ -3,7 +3,7 @@ import es.kotlin.async.coroutine.asyncFun
 import es.kotlin.lang.tryInt
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
-import es.kotlin.net.async.readLineAsync
+import es.kotlin.net.async.readLine
 
 // Multi-client telnet chat server using AsyncStream for listening clients
 object ChatServer {
@@ -42,7 +42,7 @@ object ChatServer {
 
 			try {
 				while (true) {
-					val line = me.readLineAsync(charset)
+					val line = me.readLine(charset)
 					println("Client#$id said: $line")
 					broadcastLine("Client#$id said: $line", exclude = meSet)
 				}

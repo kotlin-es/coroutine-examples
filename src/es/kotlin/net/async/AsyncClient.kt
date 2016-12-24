@@ -1,9 +1,6 @@
 package es.kotlin.net.async
 
-import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.async
-import es.kotlin.async.coroutine.await
-import es.kotlin.async.coroutine.awaitAsync
+import es.kotlin.async.coroutine.asyncFun
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.SocketAddress
@@ -12,6 +9,7 @@ import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.CompletionHandler
 import java.nio.charset.Charset
 import java.util.*
+import kotlin.coroutines.suspendCoroutine
 
 class AsyncClient(
 	private val sc: AsynchronousSocketChannel = AsynchronousSocketChannel.open()
@@ -21,22 +19,20 @@ class AsyncClient(
 	val millisecondsTimeout = 60 * 1000L
 
 	companion object {
-		fun createAndConnectAsync(host: String, port: Int, bufferSize: Int = 1024): Promise<AsyncClient> = async {
+		suspend fun createAndConnect(host: String, port: Int, bufferSize: Int = 1024) = asyncFun {
 			val socket = AsyncClient()
-			await(socket.connectAsync(host, port))
+			socket.connect(host, port)
 			socket
 		}
 	}
 
-	fun connectAsync(host: String, port: Int) = connectAsync(InetSocketAddress(host, port))
+	suspend fun connect(host: String, port: Int) = connect(InetSocketAddress(host, port))
 
-	fun connectAsync(remote: SocketAddress): Promise<Unit> {
-		val deferred = Promise.Deferred<Unit>()
+	suspend fun connect(remote: SocketAddress): Unit = suspendCoroutine { c ->
 		sc.connect(remote, this, object : CompletionHandler<Void, AsyncClient> {
-			override fun completed(result: Void?, attachment: AsyncClient): Unit = run { _connected = true; deferred.resolve(Unit) }
-			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run { _connected = false; deferred.reject(exc) }
+			override fun completed(result: Void?, attachment: AsyncClient): Unit = run { _connected = true; c.resume(Unit) }
+			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run { _connected = false; c.resumeWithException(exc) }
 		})
-		return deferred.promise
 	}
 
 	val connected: Boolean get() = this._connected
@@ -45,57 +41,42 @@ class AsyncClient(
 	//Stream.
 	//}
 
-	fun readAsync(size: Int): Promise<ByteArray> {
-		val deferred = Promise.Deferred<ByteArray>()
+	suspend fun read(size: Int): ByteArray = suspendCoroutine { c ->
 		val out = ByteArray(size)
 		val buffer = ByteBuffer.wrap(out)
 		sc.read(buffer, this, object : CompletionHandler<Int, AsyncClient> {
 			override fun completed(result: Int, attachment: AsyncClient): Unit = run {
 				if (result < 0) {
-					deferred.reject(RuntimeException("EOF"))
+					c.resumeWithException(RuntimeException("EOF"))
 				} else {
-					deferred.resolve(Arrays.copyOf(out, result))
+					c.resume(Arrays.copyOf(out, result))
 				}
 			}
 
-			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run { deferred.reject(exc) }
+			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run {
+				c.resumeWithException(exc)
+			}
 		})
-		deferred.onCancel {
-			// @TODO: Cancel reading!
-			println("@TODO: Cancel reading!")
-		}
-		return deferred.promise
 	}
 
-	suspend fun write(data: ByteArray) = await(writeAsync(data))
-
-	fun writeAsync(data: ByteArray): Promise<Unit> {
-		val deferred = Promise.Deferred<Unit>()
+	suspend fun write(data: ByteArray) = suspendCoroutine<Unit> { c ->
 		val buffer = ByteBuffer.wrap(data)
 		sc.write(buffer, this, object : CompletionHandler<Int, AsyncClient> {
-			override fun completed(result: Int, attachment: AsyncClient): Unit = run { deferred.resolve(Unit) }
-			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run { deferred.reject(exc) }
+			override fun completed(result: Int, attachment: AsyncClient): Unit = run { c.resume(Unit) }
+			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run { c.resumeWithException(exc) }
 		})
-		deferred.onCancel {
-			// @TODO: Cancel writting!
-			println("@TODO: Cancel writting!")
-		}
-		return deferred.promise
 	}
 
-	fun closeAsync(): Promise<Unit> {
+	suspend fun close(): Unit = asyncFun {
 		sc.close()
-		return Promise.resolved(Unit)
 	}
 }
 
-suspend fun AsyncClient.readLine(charset: Charset = Charsets.UTF_8) = await(readLineAsync(charset))
-
-fun AsyncClient.readLineAsync(charset: Charset = Charsets.UTF_8): Promise<String> = async<String> {
+suspend fun AsyncClient.readLine(charset: Charset = Charsets.UTF_8) = asyncFun {
 	val os = ByteArrayOutputStream()
 	// @TODO: optimize this!
 	while (true) {
-		val ba = await(readAsync(1))
+		val ba = read(1)
 		os.write(ba[0].toInt())
 		if (ba[0].toChar() == '\n') break
 	}
