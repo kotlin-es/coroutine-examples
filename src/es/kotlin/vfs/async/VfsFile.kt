@@ -1,10 +1,7 @@
 package es.kotlin.vfs.async
 
 import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.AsyncSequence
-import es.kotlin.async.coroutine.async
-import es.kotlin.async.coroutine.asyncGenerate
-import es.kotlin.async.coroutine.await
+import es.kotlin.async.coroutine.*
 import java.nio.charset.Charset
 import java.util.*
 
@@ -48,26 +45,26 @@ class VfsFile(
 
 	operator fun get(path: String): VfsFile = VfsFile(vfs, combine(this.path, path))
 
-	fun readAsync(): Promise<ByteArray> = vfs.readFullyAsync(path)
-	fun writeAsync(data: ByteArray): Promise<Unit> = vfs.writeFullyAsync(path, data)
+	suspend fun read(): ByteArray = vfs.readFully(path)
+	suspend fun write(data: ByteArray): Unit = vfs.writeFully(path, data)
 
-	fun readStringAsync(charset: Charset = Charsets.UTF_8): Promise<String> = async { await(vfs.readFullyAsync(path)).toString(charset) }
-	fun writeStringAsync(data: String, charset: Charset = Charsets.UTF_8): Promise<Unit> = async { await(vfs.writeFullyAsync(path, data.toByteArray(charset))) }
+	suspend fun readString(charset: Charset = Charsets.UTF_8): String = asyncFun { vfs.readFully(path).toString(charset) }
+	suspend fun writeString(data: String, charset: Charset = Charsets.UTF_8): Unit = asyncFun { vfs.writeFully(path, data.toByteArray(charset)) }
 
-	fun readChunkAsync(offset: Long, size: Long): Promise<ByteArray> = vfs.readChunkAsync(path, offset, size)
-	fun writeChunkAsync(data: ByteArray, offset: Long, resize: Boolean = false): Promise<Unit> = vfs.writeChunkAsync(path, data, offset, resize)
+	suspend fun readChunk(offset: Long, size: Long): ByteArray = vfs.readChunk(path, offset, size)
+	suspend fun writeChunk(data: ByteArray, offset: Long, resize: Boolean = false): Unit = vfs.writeChunk(path, data, offset, resize)
 
-	fun statAsync(): Promise<VfsStat> = vfs.statAsync(path)
-	fun sizeAsync(): Promise<Long> = async { await(vfs.statAsync(path)).size }
-	fun existsAsync(): Promise<Boolean> = async {
+	suspend fun stat(): VfsStat = vfs.stat(path)
+	suspend fun size(): Long = asyncFun { vfs.stat(path).size }
+	suspend fun exists(): Boolean = asyncFun {
 		try {
-			await(vfs.statAsync(path)).exists
+			vfs.stat(path).exists
 		} catch (e: Throwable) {
 			false
 		}
 	}
 
-	fun setSizeAsync(size: Long): Promise<Unit> = vfs.setSizeAsync(path, size)
+	suspend fun setSize(size: Long): Unit = vfs.setSize(path, size)
 
 	fun jail(): VfsFile = JailVfs(this).root
 

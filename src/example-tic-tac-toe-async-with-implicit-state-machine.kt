@@ -1,8 +1,6 @@
 import es.kotlin.async.EventLoop
 import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.async
-import es.kotlin.async.coroutine.await
-import es.kotlin.async.coroutine.awaitWithTimeout
+import es.kotlin.async.coroutine.*
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
@@ -22,31 +20,33 @@ fun main(args: Array<String>) = EventLoop.mainAsync {
 
 object TicTacToe {
 	val charset = Charsets.UTF_8
-	fun AsyncClient.writeLineAsync(line: String) = this.writeAsync("$line\r\n".toByteArray(charset))
-	fun Iterable<AsyncClient>.writeLineAsync(line: String) = async<Unit> { for (s in this@writeLineAsync) await(s.writeLineAsync(line)) }
+	suspend fun AsyncClient.writeLine(line: String) = this.write("$line\r\n".toByteArray(charset))
+	suspend fun Iterable<AsyncClient>.writeLine(line: String) = async<Unit> { for (s in this) s.writeLine(line) }
+
+	val server = AsyncServer()
+	val port = 9090
+
+	lateinit var connections: AsyncIterator<AsyncClient>
+
+	suspend fun listenConnection() = asyncFun {
+		val player = connections.next()
+		player.writeLine("Joined a tic-tac-toe game! Write row and column to place a chip: 00 - 22")
+		player
+	}
 
 	fun serverAsync() = async<Unit> {
-		val server = AsyncServer()
-		val port = 9090
-
-		val connections = server.listen(port).iterator()
+		connections = server.listen(port).iterator()
 
 		println("Listeining at ... $port")
-
-		fun listenConnectionAsync() = async<AsyncClient> {
-			val player = connections.next()
-			await(player.writeLineAsync("Joined a tic-tac-toe game! Write row and column to place a chip: 00 - 22"))
-			player
-		}
 
 		// Match-making
 		while (true) {
 			try {
-				val player1 = await(listenConnectionAsync())
-				await(player1.writeLineAsync("Waiting for other player to start!"))
-				val player2 = await(listenConnectionAsync())
-				val matchPromise = matchAsync(player1, player2) // no wait so we continue creating matches while game is running!
-				matchPromise.then { result ->
+				val player1 = listenConnection()
+				player1.writeLine("Waiting for other player to start!")
+				val player2 = listenConnection()
+				async { // no wait so we continue creating matches while game is running!
+					val result = match(player1, player2)
 					println("Match resolved with $result")
 				}
 			} catch (t: Throwable) {
@@ -56,7 +56,7 @@ object TicTacToe {
 		}
 	}
 
-	fun matchAsync(player1: AsyncClient, player2: AsyncClient) = async<GameResult> {
+	suspend fun match(player1: AsyncClient, player2: AsyncClient) = asyncFun {
 		class PlayerInfo(val id: Int, val chip: Char)
 
 		var turn = 0
@@ -66,11 +66,11 @@ object TicTacToe {
 
 		val board = Board()
 
-		await(players.writeLineAsync("tic-tac-toe: Game started!"))
+		players.writeLine("tic-tac-toe: Game started!")
 
 		val moveTimeout = 1000.seconds // Almost disable timeout because socket should cancel reading!
 
-		fun readMoveAsync(currentPlayer: AsyncClient): Promise<Point> = async {
+		suspend fun readMove(currentPlayer: AsyncClient) = asyncFun {
 			var pos: Point
 			selectmove@ while (true) {
 				val line = currentPlayer.readLineAsync(charset).awaitWithTimeout(moveTimeout)
@@ -79,13 +79,13 @@ object TicTacToe {
 					val y = ("" + line[1]).toInt()
 					pos = Point(x, y)
 					if (board.hasChipAt(pos)) {
-						await(currentPlayer.writeLineAsync("Already has a chip: $pos"))
+						currentPlayer.writeLine("Already has a chip: $pos")
 						continue
 					} else {
 						break@selectmove
 					}
 				} catch (e: Throwable) {
-					await(currentPlayer.writeLineAsync("ERROR: ${e.javaClass}: ${e.message}"))
+					currentPlayer.writeLine("ERROR: ${e.javaClass}: ${e.message}")
 					e.printStackTrace()
 				}
 			}
@@ -95,18 +95,18 @@ object TicTacToe {
 		var result: GameResult
 
 		ingame@ while (true) {
-			await(players.writeLineAsync("Turn: $turn"))
-			await(board.sendBoardAsync(players))
+			players.writeLine("Turn: $turn")
+			board.sendBoard(players)
 			val currentPlayer = players[turn % players.size]
-			await(currentPlayer.writeLineAsync("Your turn! You have $moveTimeout to move, or a move will perform automatically!"))
+			currentPlayer.writeLine("Your turn! You have $moveTimeout to move, or a move will perform automatically!")
 
 			val pos = try {
-				await(readMoveAsync(currentPlayer))
+				readMove(currentPlayer)
 			} catch (e: TimeoutException) {
 				board.getOneAvailablePositions()
 			}
 
-			await(currentPlayer.writeLineAsync("Placed at $pos!"))
+			currentPlayer.writeLine("Placed at $pos!")
 			board[pos] = currentPlayer.info().chip
 
 			result = board.checkResult()
@@ -116,14 +116,14 @@ object TicTacToe {
 					continue@ingame
 				}
 				is GameResult.Draw, is GameResult.Win -> {
-					await(board.sendBoardAsync(players))
-					await(players.writeLineAsync("$result"))
+					board.sendBoard(players)
+					players.writeLine("$result")
 					break@ingame
 				}
 			}
 		}
 
-		await(players.writeLineAsync("End of game!"))
+		players.writeLine("End of game!")
 		for (player in players) {
 			try {
 				await(player.closeAsync())
@@ -146,11 +146,11 @@ object TicTacToe {
 			arrayListOf(' ', ' ', ' ')
 		)
 
-		fun sendBoardAsync(players: Iterable<AsyncClient>) = async<Unit> {
-			await(players.writeLineAsync("---+---+---"))
+		suspend fun sendBoard(players: Iterable<AsyncClient>) = asyncFun {
+			players.writeLine("---+---+---")
 			for (row in data) {
-				await(players.writeLineAsync(" " + row.joinToString(" | ")))
-				await(players.writeLineAsync("---+---+---"))
+				players.writeLine(" " + row.joinToString(" | "))
+				players.writeLine("---+---+---")
 			}
 		}
 

@@ -7,21 +7,10 @@ import java.io.File
 
 fun LocalVfs(base: File): VfsFile {
 	class Impl : Vfs() {
-		override fun readChunkAsync(path: String, offset: Long, size: Long): Promise<ByteArray> {
-			return super.readChunkAsync(path, offset, size)
-		}
-
-		override fun writeChunkAsync(path: String, data: ByteArray, offset: Long, resize: Boolean): Promise<Unit> {
-			return super.writeChunkAsync(path, data, offset, resize)
-		}
-
-		override fun setSizeAsync(path: String, size: Long): Promise<Unit> {
-			return super.setSizeAsync(path, size)
-		}
-
-		override fun statAsync(path: String): Promise<VfsStat> {
-			return super.statAsync(path)
-		}
+		suspend override fun readChunk(path: String, offset: Long, size: Long) = super.readChunk(path, offset, size)
+		suspend override fun writeChunk(path: String, data: ByteArray, offset: Long, resize: Boolean) = super.writeChunk(path, data, offset, resize)
+		suspend override fun setSize(path: String, size: Long): Unit = super.setSize(path, size)
+		suspend override fun stat(path: String): VfsStat = super.stat(path)
 
 		suspend override fun list(path: String) = asyncGenerate {
 			val enumBase = File("${base.absolutePath}/$path").absoluteFile

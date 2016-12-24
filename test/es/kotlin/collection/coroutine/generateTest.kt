@@ -18,7 +18,8 @@ class GenerateTest {
 	fun testGenerateNulls() {
 		fun gen() = generate {
 			for (n in 3..7) {
-				yield(n); yield(null)
+				yield(n);
+				yield(null)
 			}
 		}
 		assertEquals("3,null,4,null,5,null,6,null,7,null", gen().joinToString(","))

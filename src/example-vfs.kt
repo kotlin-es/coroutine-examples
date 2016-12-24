@@ -5,7 +5,7 @@ import java.io.File
 fun main(args: Array<String>) = EventLoop.mainAsync {
 	val vfs = LocalVfs(File("."))
 
-	for (it in vfs.listRecursive()) {
+	for (it in vfs.listRecursive()) { // lazy and asynchronous!
 		println(it)
 	}
 }
