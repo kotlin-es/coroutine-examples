@@ -21,24 +21,28 @@ object EventLoop {
 		entry?.invoke()
 
 		while (handlers.isNotEmpty() || timerHandlers.isNotEmpty() || Thread.activeCount() > 1) {
-			while (handlers.isNotEmpty()) {
-				val handler = handlers.removeFirst()
-				handler?.invoke()
-			}
-			val now = System.currentTimeMillis()
-			while (timerHandlers.isNotEmpty()) {
-				val handler = timerHandlers.removeFirst()
-				if (now >= handler.time) {
-					handler.handler()
-				} else {
-					timerHandlersBack.add(handler)
-				}
-			}
-			val temp = timerHandlersBack
-			timerHandlersBack = timerHandlers
-			timerHandlers = temp
+			step()
 			Thread.sleep(1L)
 		}
+	}
+
+	fun step() {
+		while (handlers.isNotEmpty()) {
+			val handler = handlers.removeFirst()
+			handler?.invoke()
+		}
+		val now = System.currentTimeMillis()
+		while (timerHandlers.isNotEmpty()) {
+			val handler = timerHandlers.removeFirst()
+			if (now >= handler.time) {
+				handler.handler()
+			} else {
+				timerHandlersBack.add(handler)
+			}
+		}
+		val temp = timerHandlersBack
+		timerHandlersBack = timerHandlers
+		timerHandlers = temp
 	}
 
 	fun setImmediate(handler: () -> Unit) {

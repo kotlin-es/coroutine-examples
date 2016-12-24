@@ -14,13 +14,8 @@ fun <T> generate(routine: suspend GeneratorController<T>.() -> Unit): Iterable<T
 					controller.lastContinuation = routine.createCoroutine(
 						controller,
 						completion = object : Continuation<Unit> {
-							override fun resume(value: Unit) {
-								controller.done = true
-							}
-
-							override fun resumeWithException(exception: Throwable) {
-								throw exception
-							}
+							override fun resume(value: Unit) = run { controller.done = true }
+							override fun resumeWithException(exception: Throwable) = run { throw exception }
 						}
 					)
 				}

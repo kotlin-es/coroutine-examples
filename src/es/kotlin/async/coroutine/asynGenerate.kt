@@ -41,12 +41,14 @@ class AsyncGeneratorIterator<T>: AsyncIterator<T>, AsyncGenerator<T>, Continuati
 	suspend fun computeHasNext(): Boolean = suspendCoroutine { c ->
 		computesNext = false
 		computeContinuation = c
+		println("computeHasNext.resume:Unit")
 		nextStep!!.resume(Unit)
 	}
 
 	suspend fun computeNext(): T = suspendCoroutine { c ->
 		computesNext = true
 		computeContinuation = c
+		println("computeNext.resume:Unit")
 		nextStep!!.resume(Unit)
 	}
 
@@ -54,13 +56,16 @@ class AsyncGeneratorIterator<T>: AsyncIterator<T>, AsyncGenerator<T>, Continuati
 	fun resumeIterator(exception: Throwable?) {
 		if (exception != null) {
 			done()
+			println("resumeIterator.exception:" + exception)
 			computeContinuation!!.resumeWithException(exception)
 			return
 		}
 		if (computesNext) {
 			computedNext = false
+			println("resumeIterator.nextValue:" + nextValue)
 			(computeContinuation as Continuation<T>).resume(nextValue as T)
 		} else {
+			println("resumeIterator.nextStep:" + nextStep)
 			(computeContinuation as Continuation<Boolean>).resume(nextStep != null)
 		}
 	}
@@ -100,6 +105,11 @@ class AsyncGeneratorIterator<T>: AsyncIterator<T>, AsyncGenerator<T>, Continuati
 		resumeIterator(null)
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 inline suspend fun <T, T2> AsyncSequence<T>.map(crossinline transform: (T) -> T2) = asyncGenerate<T2> {
 	for (e in this@map) {

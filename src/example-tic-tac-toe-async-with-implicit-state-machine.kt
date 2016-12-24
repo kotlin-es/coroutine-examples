@@ -7,21 +7,23 @@ import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
 import es.kotlin.net.async.readLine
+import es.kotlin.random.get
+import es.kotlin.time.TimeSpan
 import es.kotlin.time.seconds
+import java.nio.charset.Charset
 import java.util.*
 import java.util.concurrent.TimeoutException
 
 // Example showing how to create a tic-tac-toe server without a explicit state machine
 // Using await-async coroutine as it's state as an implicit (and cool) state machine
 fun main(args: Array<String>) = EventLoop.mainAsync {
-	TicTacToe.server()
+	TicTacToe(moveTimeout = 1.seconds).server()
 }
 
-object TicTacToe {
-	val charset = Charsets.UTF_8
-	suspend fun AsyncClient.writeLine(line: String) = this.write("$line\r\n".toByteArray(charset))
-	suspend fun Iterable<AsyncClient>.writeLine(line: String) = asyncFun { for (s in this) s.writeLine(line) }
+suspend fun AsyncClient.writeLine(line: String, charset: Charset = Charsets.UTF_8) = this.write("$line\r\n".toByteArray(charset))
+suspend fun Iterable<AsyncClient>.writeLine(line: String, charset: Charset = Charsets.UTF_8) = asyncFun { for (s in this) s.writeLine(line, charset) }
 
+class TicTacToe(val moveTimeout: TimeSpan = 1.seconds) {
 	val server = AsyncServer()
 	val port = 9090
 
@@ -46,7 +48,7 @@ object TicTacToe {
 				val player2 = listenConnection()
 				async {
 					// no wait so we continue creating matches while game is running!
-					val result = Match(player1, player2)
+					val result = Match(moveTimeout, player1, player2)
 					println("Match resolved with $result")
 				}
 			} catch (t: Throwable) {
@@ -56,10 +58,10 @@ object TicTacToe {
 		}
 	}
 
-	class Match private constructor(val player1: AsyncClient, val player2: AsyncClient, val dummy: Boolean) {
+	class Match private constructor(val moveTimeout: TimeSpan, val player1: AsyncClient, val player2: AsyncClient, val dummy: Boolean) {
 		// Trick!
 		companion object {
-			operator suspend fun invoke(player1: AsyncClient, player2: AsyncClient) = Match(player1, player2, true).start()
+			operator suspend fun invoke(moveTimeout: TimeSpan, player1: AsyncClient, player2: AsyncClient) = Match(moveTimeout, player1, player2, true).start()
 		}
 
 		class PlayerInfo(val id: Int, val chip: Char)
@@ -71,15 +73,10 @@ object TicTacToe {
 
 		val board = Board()
 
-		//val moveTimeout = 1000.seconds // Almost disable timeout because socket should cancel reading!
-		//val moveTimeout = 10.seconds // Almost disable timeout because socket should cancel reading!
-		//val moveTimeout = 5.seconds // Almost disable timeout because socket should cancel reading!
-		val moveTimeout = 1.seconds // Almost disable timeout because socket should cancel reading!
-
 		suspend private fun readMove(currentPlayer: AsyncClient) = asyncFun {
 			var pos: Point
 			selectmove@ while (true) {
-				val line = limitedInTime(moveTimeout) { currentPlayer.readLine(charset) }
+				val line = limitedInTime(moveTimeout) { currentPlayer.readLine() }
 				try {
 					val x = ("" + line[0]).toInt()
 					val y = ("" + line[1]).toInt()
@@ -172,17 +169,17 @@ object TicTacToe {
 		operator fun set(p: Point, v: Char) = run { this[p.x, p.y] = v }
 		fun hasChipAt(p: Point) = hasChipAt(p.x, p.y)
 
-		fun getAllPositions() = generate<Point> {
+		fun getAllPositions() = generate {
 			for (y in 0 until 3) for (x in 0 until 3) {
 				yield(Point(x, y))
 			}
 		}
 
-		fun getAvailablePositions() = generate<Point> {
+		fun getAvailablePositions() = generate {
 			for (p in getAllPositions()) if (!hasChipAt(p)) yield(p)
 		}
 
-		fun getOneAvailablePositions(): Point = getAvailablePositions()[random]
+		fun getOneAvailablePositions(): Point = getAvailablePositions().toList()[random]
 
 		fun getRow(y: Int) = (0 until 3).map { x -> Point(x, y) }
 		fun getCol(x: Int) = (0 until 3).map { y -> Point(x, y) }

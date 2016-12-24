@@ -3,7 +3,6 @@ package es.kotlin.async.coroutine
 import es.kotlin.async.EventLoop
 import es.kotlin.async.Promise
 import es.kotlin.time.TimeSpan
-import java.lang.IllegalStateException
 import java.util.concurrent.TimeoutException
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.startCoroutine
@@ -19,7 +18,6 @@ fun <T> async(routine: suspend () -> T): Promise<T> {
 	routine.startCoroutine(completion = object : Continuation<T> {
 		override fun resume(value: T) = Unit.apply { deferred.resolve(value) }
 		override fun resumeWithException(exception: Throwable) = Unit.apply { deferred.reject(exception) }
-
 	})
 	return deferred.promise
 }
@@ -61,4 +59,26 @@ suspend fun <T> limitedInTime(timeout: TimeSpan, callback: suspend () -> T) = su
 			}
 		}
 	})
+}
+
+fun <T> sync(routine: suspend () -> T): T = async(routine).syncWait()
+
+fun <T> Promise<T>.syncWait(): T {
+	var completed = false
+	var result: T? = null
+	var exception: Throwable? = null
+
+	this.then(resolved = {
+		result = it
+		completed = true
+	}, rejected = {
+		exception = it
+		completed = true
+	})
+	while (!completed) {
+		EventLoop.step()
+		Thread.sleep(1L)
+	}
+	if (exception != null) throw exception!!
+	return result!!
 }

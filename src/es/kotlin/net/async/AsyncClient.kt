@@ -1,6 +1,5 @@
 package es.kotlin.net.async
 
-import es.kotlin.async.Signal
 import es.kotlin.async.coroutine.asyncFun
 import es.kotlin.async.coroutine.asyncGenerate
 import java.io.ByteArrayOutputStream
@@ -21,6 +20,8 @@ class AsyncClient(
 	val millisecondsTimeout = 60 * 1000L
 
 	companion object {
+		suspend operator fun invoke(host: String, port: Int, bufferSize: Int = 1024) = createAndConnect(host, port, bufferSize)
+
 		suspend fun createAndConnect(host: String, port: Int, bufferSize: Int = 1024) = asyncFun {
 			val socket = AsyncClient()
 			socket.connect(host, port)
@@ -44,13 +45,11 @@ class AsyncClient(
 	//Stream.
 	//}
 
-fun readStream() = asyncGenerate {
-	while (true) {
-		val ba = ___read(1) // not going to cancel!
-		val bb = ba[0]
-		yield(bb)
+	fun readStream() = asyncGenerate {
+		while (true) {
+			yield(___read(1)[0])
+		}
 	}
-}
 
 	suspend fun read(size: Int): ByteArray = asyncFun {
 		val out = ByteArray(size)
@@ -65,13 +64,16 @@ fun readStream() = asyncGenerate {
 		sc.read(buffer, this, object : CompletionHandler<Int, AsyncClient> {
 			override fun completed(result: Int, attachment: AsyncClient): Unit = run {
 				if (result < 0) {
+					println("___read.completed.Resume: EOF")
 					c.resumeWithException(RuntimeException("EOF"))
 				} else {
+					println("___read.completed..Resume: $out")
 					c.resume(Arrays.copyOf(out, result))
 				}
 			}
 
 			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run {
+				println("___read.failed.Resume: $exc")
 				c.resumeWithException(exc)
 			}
 		})
