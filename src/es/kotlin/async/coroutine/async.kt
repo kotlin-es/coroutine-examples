@@ -1,6 +1,5 @@
 package es.kotlin.async.coroutine
 
-import es.kotlin.async.AsyncStream
 import es.kotlin.async.EventLoop
 import es.kotlin.async.Promise
 import es.kotlin.time.TimeSpan
@@ -9,9 +8,10 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.startCoroutine
 import kotlin.coroutines.suspendCoroutine
 
-suspend fun <T> awaitAsync(routine: suspend () -> T) = async(routine).await()
+inline suspend fun <T> awaitAsync(routine: suspend () -> T) = asyncFun(routine)
 
-suspend fun <T> asyncFun(routine: suspend () -> T) = async(routine).await()
+// No need for promises here at all!
+inline suspend fun <T> asyncFun(routine: suspend () -> T): T = suspendCoroutine<T> { routine.startCoroutine(it) }
 
 fun <T> async(routine: suspend () -> T): Promise<T> {
 	val deferred = Promise.Deferred<T>()
@@ -23,13 +23,14 @@ fun <T> async(routine: suspend () -> T): Promise<T> {
 	return deferred.promise
 }
 
-suspend fun <T> Promise<T>.await() = suspendCoroutine<T>(this::then)
+suspend fun <T> await(p: Promise<T>) = suspendCoroutine<T>(p::then)
 
-suspend fun <T> Promise<T>.awaitWithTimeout(timeout: TimeSpan) = suspendCoroutine<T> { c ->
+suspend fun <T> Promise<T> .awaitWithTimeout(timeout: TimeSpan) = suspendCoroutine<T> { c ->
+	val p = this@awaitWithTimeout
 	val timer = EventLoop.setTimeout(timeout.milliseconds.toInt()) {
-		this@awaitWithTimeout.cancel(TimeoutException())
+		p.cancel(TimeoutException())
 	}
-	this.then(
+	p.then(
 		resolved = {
 			timer.dispose()
 			c.resume(it)

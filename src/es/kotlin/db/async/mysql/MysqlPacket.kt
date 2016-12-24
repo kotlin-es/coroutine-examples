@@ -2,7 +2,7 @@ package es.kotlin.db.async.mysql
 
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
-import es.kotlin.net.async.AsyncSocket
+import es.kotlin.net.async.AsyncClient
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset

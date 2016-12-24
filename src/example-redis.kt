@@ -7,12 +7,12 @@ import es.kotlin.db.async.redis.setAsync
 
 fun main(args: Array<String>) = EventLoop.mainAsync {
 	val redis = RedisClient("127.0.0.1", 6379)
-	redis.setAsync("test123", "from kotlin!").await()
+	await(redis.setAsync("test123", "from kotlin!"))
 	println("done!")
-	println(redis.getAsync("test123").await())
+	println(await(redis.getAsync("test123")))
 
 	val vfs = RedisVfs(redis)
 
-	println("vfs:" + vfs["test123"].readStringAsync().await())
+	println("vfs:" + await(vfs["test123"].readStringAsync()))
 
 }

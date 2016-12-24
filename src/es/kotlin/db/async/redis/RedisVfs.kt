@@ -10,15 +10,16 @@ import es.kotlin.vfs.async.VfsStat
 fun RedisVfs(client: RedisClient): VfsFile {
 	class Impl : Vfs() {
 		override fun readFullyAsync(path: String): Promise<ByteArray> = async {
-			("" + client.getAsync(path).await()).toByteArray(Charsets.UTF_8)
+			("" + await(client.getAsync(path))).toByteArray(Charsets.UTF_8)
 		}
 
 		override fun writeFullyAsync(path: String, data: ByteArray): Promise<Unit> = async {
-			client.setAsync(path, data.toString(Charsets.UTF_8)).await()
+			await(client.setAsync(path, data.toString(Charsets.UTF_8)))
+			Unit
 		}
 
 		override fun statAsync(path: String): Promise<VfsStat> = async {
-			val exists = client.existsAsync(path).await()
+			val exists = await(client.existsAsync(path))
 			VfsStat(file = VfsFile(this@Impl, path), exists = exists, isDirectory = false, size = -1L)
 		}
 	}

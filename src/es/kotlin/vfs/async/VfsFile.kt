@@ -1,8 +1,10 @@
 package es.kotlin.vfs.async
 
-import es.kotlin.async.AsyncStream
 import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.*
+import es.kotlin.async.coroutine.AsyncSequence
+import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.asyncGenerate
+import es.kotlin.async.coroutine.await
 import java.nio.charset.Charset
 import java.util.*
 
@@ -49,17 +51,17 @@ class VfsFile(
 	fun readAsync(): Promise<ByteArray> = vfs.readFullyAsync(path)
 	fun writeAsync(data: ByteArray): Promise<Unit> = vfs.writeFullyAsync(path, data)
 
-	fun readStringAsync(charset: Charset = Charsets.UTF_8): Promise<String> = async { vfs.readFullyAsync(path).await().toString(charset) }
-	fun writeStringAsync(data: String, charset: Charset = Charsets.UTF_8): Promise<Unit> = async { vfs.writeFullyAsync(path, data.toByteArray(charset)).await() }
+	fun readStringAsync(charset: Charset = Charsets.UTF_8): Promise<String> = async { await(vfs.readFullyAsync(path)).toString(charset) }
+	fun writeStringAsync(data: String, charset: Charset = Charsets.UTF_8): Promise<Unit> = async { await(vfs.writeFullyAsync(path, data.toByteArray(charset))) }
 
 	fun readChunkAsync(offset: Long, size: Long): Promise<ByteArray> = vfs.readChunkAsync(path, offset, size)
 	fun writeChunkAsync(data: ByteArray, offset: Long, resize: Boolean = false): Promise<Unit> = vfs.writeChunkAsync(path, data, offset, resize)
 
 	fun statAsync(): Promise<VfsStat> = vfs.statAsync(path)
-	fun sizeAsync(): Promise<Long> = async { vfs.statAsync(path).await().size }
+	fun sizeAsync(): Promise<Long> = async { await(vfs.statAsync(path)).size }
 	fun existsAsync(): Promise<Boolean> = async {
 		try {
-			vfs.statAsync(path).await().exists
+			await(vfs.statAsync(path)).exists
 		} catch (e: Throwable) {
 			false
 		}
@@ -69,7 +71,7 @@ class VfsFile(
 
 	fun jail(): VfsFile = JailVfs(this).root
 
-	fun list(): AsyncStream<VfsStat> = vfs.list(path)
+	suspend fun list(): AsyncSequence<VfsStat> = vfs.list(path)
 
 	//fun listRecursive(): AsyncStream<VfsStat> = generateAsync {
 	// @TODO: Report ERROR: java.lang.IllegalAccessError: tried to access field es.kotlin.vfs.async.VfsFile$listRecursive$1.controller from class es.kotlin.vfs.async.VfsFile$listRecursive$1$1
@@ -80,14 +82,13 @@ class VfsFile(
 	//	}
 	//}
 
-	fun listRecursive(): AsyncStream<VfsStat> = generateAsync {
+	suspend fun listRecursive(): AsyncSequence<VfsStat> = asyncGenerate {
 		// @TODO: This is not lazy at all! (at least per directory). Find a way to flatMap lazily this
-		val files = this@VfsFile.list().toListAsync().await()
-		for (file in files) {
-			emit(file)
+		for (file in list()) {
+			yield(file)
 			if (file.isDirectory) {
-				for (file in file.file.listRecursive().toListAsync().await()) {
-					emit(file)
+				for (file in file.file.listRecursive()) {
+					yield(file)
 				}
 			}
 		}

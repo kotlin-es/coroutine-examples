@@ -3,7 +3,7 @@ package es.kotlin.db.async.redis
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
 import es.kotlin.async.coroutine.await
-import es.kotlin.net.async.AsyncSocket
+import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.readLineAsync
 
 // Ported from by .NET code: https://github.com/soywiz/NodeNetAsync/blob/master/NodeNetAsync/Db/Redis/RedisClient.cs
@@ -12,11 +12,11 @@ class RedisClient(
 	private val port: Int = 6379
 ) {
 	private val charset = Charsets.UTF_8
-	private val socket = AsyncSocket()
+	private val socket = AsyncClient()
 
 	protected fun ensureConnectAsync(): Promise<Unit> = async<Unit> {
 		if (!socket.connected) {
-			socket.connectAsync(host, port).await()
+			await(socket.connectAsync(host, port))
 		}
 	}
 
@@ -31,14 +31,14 @@ class RedisClient(
 
 		val data = cmd.toByteArray(charset)
 		return async<Any> {
-			ensureConnectAsync().await()
-			socket.writeAsync(data).await()
-			readValueAsync().await()
+			await(ensureConnectAsync())
+			await(socket.writeAsync(data))
+			await(readValueAsync())
 		}
 	}
 
 	private fun readValueAsync(): Promise<Any> = async {
-		val firstLine = socket.readLineAsync(charset).await()
+		val firstLine = await(socket.readLineAsync(charset))
 		val type = firstLine[0]
 		val data = firstLine.substring(1)
 
@@ -67,7 +67,7 @@ class RedisClient(
 					//data2.toString(charset)
 
 					// @WORKS
-					val data2 = socket.readAsync(bytesToRead + 2).await()
+					val data2 = await(socket.readAsync(bytesToRead + 2))
 					val out = data2.toString(charset)
 					out.substring(0, out.length - 2)
 				}
@@ -77,7 +77,7 @@ class RedisClient(
 				val bulksToRead = data.toLong()
 				val bulks = arrayListOf<Any>()
 				for (n in 0 until bulksToRead) {
-					bulks += readValueAsync().await()
+					bulks += await(readValueAsync())
 				}
 				bulks
 			}
@@ -95,13 +95,13 @@ class RedisClient(
 //fun RedisClient.setAsync(key: String, value: String) = async<Unit> { commandAsync("set", key, value).await() }
 
 
-fun RedisClient.setAsync(key: String, value: String) = async<Unit> { commandAsync("set", key, value).await(); Unit }
+fun RedisClient.setAsync(key: String, value: String) = commandAsync("set", key, value)
 //fun RedisClient.setAsync(key: String, value: String) = commandAsync("set", key, value)
 
 
-fun RedisClient.getAsync(key: String) = async<Any> { commandAsync("get", key).await() }
+fun RedisClient.getAsync(key: String) = commandAsync("get", key)
 //fun RedisClient.getAsync(key: String) = commandAsync("get", key)
 
-fun RedisClient.existsAsync(key: String) = async<Boolean> { commandAsync("exists", key).await() == 1L }
+fun RedisClient.existsAsync(key: String) = async<Boolean> { await(commandAsync("exists", key)) == 1L }
 
 class RedisResponseException(message: String) : RuntimeException(message)

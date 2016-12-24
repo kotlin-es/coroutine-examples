@@ -1,10 +1,8 @@
 package es.kotlin.vfs.async
 
-import es.kotlin.async.AsyncStream
 import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.await
-import es.kotlin.async.coroutine.generateAsync
-import es.kotlin.async.utils.executeInWorkerAsync
+import es.kotlin.async.coroutine.asyncGenerate
+import es.kotlin.async.utils.executeInWorker
 import java.io.File
 
 fun LocalVfs(base: File): VfsFile {
@@ -25,12 +23,12 @@ fun LocalVfs(base: File): VfsFile {
 			return super.statAsync(path)
 		}
 
-		override fun list(path: String): AsyncStream<VfsStat> = generateAsync {
+		suspend override fun list(path: String) = asyncGenerate {
 			val enumBase = File("${base.absolutePath}/$path").absoluteFile
 			val enumBaseLength = enumBase.absolutePath.length
-			val files = executeInWorkerAsync { enumBase.listFiles() ?: arrayOf() }.await()
+			val files = executeInWorker { enumBase.listFiles() ?: arrayOf() }
 			for (file in files) {
-				emit(VfsStat(
+				yield(VfsStat(
 					file = VfsFile(this@Impl, path + "/" + file.absolutePath.substring(enumBaseLength + 1)),
 					exists = file.exists(),
 					isDirectory = file.isDirectory,

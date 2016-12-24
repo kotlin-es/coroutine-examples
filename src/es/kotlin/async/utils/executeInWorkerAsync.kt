@@ -1,19 +1,14 @@
 package es.kotlin.async.utils
 
-import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.await
+import kotlin.coroutines.suspendCoroutine
 
-fun <T> executeInWorkerAsync(task: () -> T): Promise<T> {
-	val deferred = Promise.Deferred<T>()
+suspend fun <T> executeInWorker(task: () -> T): T = suspendCoroutine<T> { c ->
 	Thread {
 		try {
 			val result = task()
-			deferred.resolve(result)
+			c.resume(result)
 		} catch (e: Throwable) {
-			deferred.reject(e)
+			c.resumeWithException(e)
 		}
 	}.run()
-	return deferred.promise
 }
-
-suspend fun <T> executeInWorker(task: () -> T) = executeInWorkerAsync(task).await()
