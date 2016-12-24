@@ -1,6 +1,8 @@
 package es.kotlin.net.async
 
+import es.kotlin.async.Signal
 import es.kotlin.async.coroutine.asyncFun
+import es.kotlin.async.coroutine.asyncGenerate
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.SocketAddress
@@ -36,14 +38,30 @@ class AsyncClient(
 	}
 
 	val connected: Boolean get() = this._connected
+	val bytesStream = readStream().iterator()
 
 	//fun getAsyncStream(): Stream<ByteArray> {
 	//Stream.
 	//}
 
-	suspend fun read(size: Int): ByteArray = suspendCoroutine { c ->
+fun readStream() = asyncGenerate {
+	while (true) {
+		val ba = ___read(1) // not going to cancel!
+		val bb = ba[0]
+		yield(bb)
+	}
+}
+
+	suspend fun read(size: Int): ByteArray = asyncFun {
+		val out = ByteArray(size)
+		for (n in 0 until size) out[n] = bytesStream.next()
+		out
+	}
+
+	suspend private fun ___read(size: Int): ByteArray = suspendCoroutine { c ->
 		val out = ByteArray(size)
 		val buffer = ByteBuffer.wrap(out)
+
 		sc.read(buffer, this, object : CompletionHandler<Int, AsyncClient> {
 			override fun completed(result: Int, attachment: AsyncClient): Unit = run {
 				if (result < 0) {
@@ -58,6 +76,38 @@ class AsyncClient(
 			}
 		})
 	}
+
+	//suspend private fun _read(size: Int): ByteArray = asyncFun {
+	//	val onCancel: Signal<Unit> = Signal()
+	//	try {
+	//		__read(size, onCancel)
+	//	} finally {
+	//		onCancel.invoke(Unit)
+	//	}
+	//}
+
+	//suspend private fun __read(size: Int, onCancel: Signal<Unit>): ByteArray = suspendCoroutine { c ->
+	//	val out = ByteArray(size)
+	//	val buffer = ByteBuffer.wrap(out)
+//
+	//	sc.read(buffer, this, object : CompletionHandler<Int, AsyncClient> {
+	//		override fun completed(result: Int, attachment: AsyncClient): Unit = run {
+	//			if (result < 0) {
+	//				c.resumeWithException(RuntimeException("EOF"))
+	//			} else {
+	//				c.resume(Arrays.copyOf(out, result))
+	//			}
+	//		}
+//
+	//		override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run {
+	//			c.resumeWithException(exc)
+	//		}
+	//	})
+//
+	//	onCancel.add {
+	//		// Do cancellation
+	//	}
+	//}
 
 	suspend fun write(data: ByteArray) = suspendCoroutine<Unit> { c ->
 		val buffer = ByteBuffer.wrap(data)

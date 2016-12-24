@@ -26,31 +26,38 @@ fun <T> async(routine: suspend () -> T): Promise<T> {
 
 suspend fun <T> await(p: Promise<T>) = suspendCoroutine<T>(p::then)
 
-suspend fun <T> limitedInTime(timeout: TimeSpan, callback: suspend () -> T) = suspendCoroutine<T> { c ->
-	val disposable = EventLoop.setTimeout(timeout.milliseconds.toInt()) {
-		try {
-			c.resumeWithException(TimeoutException())
-		} catch (e: IllegalStateException) {
+class Once {
+	var completed = false
 
+	inline operator fun invoke(callback: () -> Unit) {
+		if (!completed) {
+			completed = true
+			callback()
+		}
+	}
+}
+
+suspend fun <T> limitedInTime(timeout: TimeSpan, callback: suspend () -> T) = suspendCoroutine<T> { c ->
+	val once = Once()
+
+	val disposable = EventLoop.setTimeout(timeout.milliseconds.toInt()) {
+		once {
+			c.resumeWithException(TimeoutException())
 		}
 	}
 
 	callback.startCoroutine(object : Continuation<T> {
 		override fun resume(value: T) {
-			disposable.dispose()
-			try {
+			once {
+				disposable.dispose()
 				c.resume(value)
-			} catch (e: IllegalStateException) {
-
 			}
 		}
 
 		override fun resumeWithException(exception: Throwable) {
-			disposable.dispose()
-			try {
+			once {
+				disposable.dispose()
 				c.resumeWithException(exception)
-			} catch (e: IllegalStateException) {
-
 			}
 		}
 	})

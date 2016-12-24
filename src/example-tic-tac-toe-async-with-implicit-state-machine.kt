@@ -36,7 +36,7 @@ object TicTacToe {
 	suspend fun server() = asyncFun {
 		connections = server.listen(port).iterator()
 
-		println("Listeining at ... $port")
+		println("Listening at ... $port")
 
 		// Match-making
 		while (true) {
@@ -72,7 +72,9 @@ object TicTacToe {
 		val board = Board()
 
 		//val moveTimeout = 1000.seconds // Almost disable timeout because socket should cancel reading!
-		val moveTimeout = 10.seconds // Almost disable timeout because socket should cancel reading!
+		//val moveTimeout = 10.seconds // Almost disable timeout because socket should cancel reading!
+		//val moveTimeout = 5.seconds // Almost disable timeout because socket should cancel reading!
+		val moveTimeout = 1.seconds // Almost disable timeout because socket should cancel reading!
 
 		suspend private fun readMove(currentPlayer: AsyncClient) = asyncFun {
 			var pos: Point
