@@ -2,6 +2,7 @@ package es.kotlin.db.async.redis
 
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.await
 import es.kotlin.vfs.async.Vfs
 import es.kotlin.vfs.async.VfsFile
 import es.kotlin.vfs.async.VfsStat

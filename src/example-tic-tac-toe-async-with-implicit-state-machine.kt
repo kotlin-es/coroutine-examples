@@ -1,6 +1,8 @@
 import es.kotlin.async.EventLoop
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.await
+import es.kotlin.async.coroutine.awaitWithTimeout
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncServer
 import es.kotlin.net.async.AsyncSocket
@@ -70,7 +72,7 @@ object TicTacToe {
 
 		fun readMoveAsync(currentPlayer: AsyncSocket): Promise<Point> = async {
 			var pos: Point
-			selectmove@while (true) {
+			selectmove@ while (true) {
 				val line = currentPlayer.readLineAsync(charset).awaitWithTimeout(moveTimeout)
 				try {
 					val x = ("" + line[0]).toInt()
@@ -92,7 +94,7 @@ object TicTacToe {
 
 		var result: GameResult
 
-		ingame@while (true) {
+		ingame@ while (true) {
 			players.writeLineAsync("Turn: $turn").await()
 			board.sendBoardAsync(players).await()
 			val currentPlayer = players[turn % players.size]

@@ -1,6 +1,7 @@
 package es.kotlin.async.utils
 
 import es.kotlin.async.Promise
+import es.kotlin.async.coroutine.await
 
 fun <T> executeInWorkerAsync(task: () -> T): Promise<T> {
 	val deferred = Promise.Deferred<T>()
@@ -14,3 +15,5 @@ fun <T> executeInWorkerAsync(task: () -> T): Promise<T> {
 	}.run()
 	return deferred.promise
 }
+
+suspend fun <T> executeInWorker(task: () -> T) = executeInWorkerAsync(task).await()

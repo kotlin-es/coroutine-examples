@@ -1,32 +1,33 @@
 package es.kotlin.async.coroutine
 
 import es.kotlin.async.AsyncStream
-import es.kotlin.async.Promise
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.startCoroutine
 
-fun <T> generateAsync(coroutine routine: AsyncStreamController<T>.() -> Continuation<Unit>): AsyncStream<T> {
-    val controller = AsyncStreamController<T>()
-    val c = routine(controller)
-    c.resume(Unit)
-    return controller.stream
+fun <T> generateAsync(routine: suspend AsyncStreamController<T>.() -> Unit): AsyncStream<T> {
+	val controller = AsyncStreamController<T>()
+	routine.startCoroutine(controller, completion = object : Continuation<Unit> {
+		override fun resume(value: Unit) {
+			controller.emitter.close()
+		}
+
+		override fun resumeWithException(exception: Throwable) {
+			controller.emitter.deferred.reject(exception)
+		}
+
+	})
+	return controller.stream
 }
 
-class AsyncStreamController<T> : Awaitable by Awaitable.Mixin() {
-    private val emitter = AsyncStream.Emitter<T>()
-    val stream = emitter.stream
+class AsyncStreamController<T> {
+	internal val emitter = AsyncStream.Emitter<T>()
+	val stream = emitter.stream
 
-    fun emit(value: T) {
-        emitter.emit(value)
-    }
+	fun emit(value: T) {
+		emitter.emit(value)
+	}
+}
 
-    suspend fun AsyncStream<T>.each(handler: (T) -> Unit, c: Continuation<Unit>) {
-        this.eachAsync(handler).await(c)
-    }
-
-    operator fun handleResult(v: Unit, c: Continuation<Nothing>) {
-        emitter.close()
-    }
-
-    operator fun handleException(t: Throwable, c: Continuation<Nothing>) {
-        emitter.deferred.reject(t)
-    }
+suspend fun <T> AsyncStream<T>.each(handler: (T) -> Unit) = awaitAsync {
+	this.eachAsync(handler).await()
 }

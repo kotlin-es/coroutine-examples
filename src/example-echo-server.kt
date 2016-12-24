@@ -1,5 +1,6 @@
 import es.kotlin.async.EventLoop
 import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.await
 import es.kotlin.lang.tryInt
 import es.kotlin.net.async.AsyncServer
 import es.kotlin.net.async.readLineAsync

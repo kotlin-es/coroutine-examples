@@ -1,6 +1,7 @@
 package es.kotlin.async.utils
 
 import es.kotlin.async.Promise
+import es.kotlin.async.coroutine.await
 import java.net.URL
 
 // @TODO: this should use asynchronous I/O instead of a thread per request
@@ -15,3 +16,5 @@ fun downloadUrlAsync(url: URL): Promise<String> {
     }).run()
     return deferred.promise
 }
+
+suspend fun downloadUrl(url: URL) = downloadUrlAsync(url).await()

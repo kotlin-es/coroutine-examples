@@ -2,6 +2,7 @@ package es.kotlin.net.async
 
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.await
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.SocketAddress

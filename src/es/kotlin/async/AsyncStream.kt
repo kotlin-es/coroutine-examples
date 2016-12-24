@@ -2,11 +2,12 @@ package es.kotlin.async
 
 import java.util.*
 
+typealias Handler<T> = (T) -> Unit
+
 class AsyncStream<T> {
-    typealias Handler = (T) -> Unit
     private val deferred = Promise.Deferred<Unit>()
-    private val handlers = arrayListOf<Handler>()
-    private val handlersCopy = arrayListOf<Handler>()
+    private val handlers = arrayListOf<Handler<T>>()
+    private val handlersCopy = arrayListOf<Handler<T>>()
 
     class Emitter<T> {
         val stream = AsyncStream<T>()
@@ -27,14 +28,14 @@ class AsyncStream<T> {
             deferred.resolve(Unit)
         }
     }
-    fun eachAsync(handler: Handler) = listenAsync(handler)
-    fun listenAsync(handler: Handler): Promise<Unit> {
+    fun eachAsync(handler: Handler<T>) = listenAsync(handler)
+    fun listenAsync(handler: Handler<T>): Promise<Unit> {
         handlers += handler
         return deferred.promise
     }
     fun readOneAsync(): Promise<T> {
         val out = Promise.Deferred<T>()
-        var handler: Handler? = null
+        var handler: Handler<T>? = null
         handler = { value: T ->
             handlers.remove(handler)
             out.resolve(value)

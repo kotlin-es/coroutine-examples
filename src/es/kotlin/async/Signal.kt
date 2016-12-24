@@ -1,15 +1,15 @@
 package es.kotlin.async
 
 class Signal<T> {
-	typealias Handler = (T) -> Unit
+	private val handlers = arrayListOf<(T) -> Unit>()
 
-	private val handlers = arrayListOf<Handler>()
-
-	fun add(handler: Handler) {
+	fun add(handler: (T) -> Unit) {
 		handlers += handler
 	}
 
 	operator fun invoke(value: T) {
 		for (handler in handlers) handler.invoke(value)
 	}
+
+	operator fun invoke(value: (T) -> Unit) = add(value)
 }

@@ -2,12 +2,15 @@ package es.kotlin.async.utils
 
 import es.kotlin.async.EventLoop
 import es.kotlin.async.Promise
+import es.kotlin.async.coroutine.await
 import es.kotlin.time.TimeSpan
 
 // @TODO: this would be cool!
 //suspend fun Awaitable.wait(time: TimeSpan, c: Continuation<Unit>) {
 //    waitAsync()
 //}
+
+suspend fun sleep(time: TimeSpan) = waitAsync(time).await()
 
 fun waitAsync(time: TimeSpan) = waitAsync(time, Unit)
 

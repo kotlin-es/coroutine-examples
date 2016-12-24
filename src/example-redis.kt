@@ -1,4 +1,5 @@
 import es.kotlin.async.EventLoop
+import es.kotlin.async.coroutine.await
 import es.kotlin.db.async.redis.RedisClient
 import es.kotlin.db.async.redis.RedisVfs
 import es.kotlin.db.async.redis.getAsync

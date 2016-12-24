@@ -1,6 +1,5 @@
 package es.kotlin.async
 
-import es.kotlin.async.coroutine.AwaitAsyncController
 import es.kotlin.async.coroutine.async
 import es.kotlin.lang.Disposable
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -12,7 +11,7 @@ object EventLoop {
 	var timerHandlers = ConcurrentLinkedDeque<TimerHandler>()
 	var timerHandlersBack = ConcurrentLinkedDeque<TimerHandler>()
 
-	fun mainAsync(coroutine routine: AwaitAsyncController<Unit>.() -> Continuation<Unit>): Unit {
+	fun mainAsync(routine: suspend () -> Unit): Unit {
 		main {
 			async(routine)
 		}
@@ -49,6 +48,8 @@ object EventLoop {
 	fun setTimeout(time: Int, callback: () -> Unit): Disposable {
 		val handler = TimerHandler(System.currentTimeMillis() + time, callback)
 		timerHandlers.add(handler)
-		return object : Disposable { override fun dispose(): Unit = run { timerHandlers.remove(handler) } }
+		return object : Disposable {
+			override fun dispose(): Unit = run { timerHandlers.remove(handler) }
+		}
 	}
 }

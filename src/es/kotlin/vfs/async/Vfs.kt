@@ -3,6 +3,7 @@ package es.kotlin.vfs.async
 import es.kotlin.async.AsyncStream
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
+import es.kotlin.async.coroutine.await
 
 abstract class Vfs {
 	val root by lazy { VfsFile(this, "/") }
