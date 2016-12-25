@@ -1,2 +1,8 @@
 /out/
 *.iws
+*.iml
+*.ipr
+.gradle
+.vertx
+.idea
+/build

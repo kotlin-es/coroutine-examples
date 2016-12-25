@@ -1,8 +1,7 @@
 import es.kotlin.async.EventLoop
-import es.kotlin.async.coroutine.AsyncIterator
-import es.kotlin.async.coroutine.async
-import es.kotlin.async.coroutine.asyncFun
-import es.kotlin.async.coroutine.limitedInTime
+import es.kotlin.async.Promise
+import es.kotlin.async.coroutine.*
+import es.kotlin.async.utils.sleep
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
@@ -13,6 +12,7 @@ import es.kotlin.time.seconds
 import java.nio.charset.Charset
 import java.util.*
 import java.util.concurrent.TimeoutException
+import kotlin.coroutines.suspendCoroutine
 
 // Example showing how to create a tic-tac-toe server without a explicit state machine
 // Using await-async coroutine as it's state as an implicit (and cool) state machine
@@ -23,20 +23,31 @@ fun main(args: Array<String>) = EventLoop.mainAsync {
 suspend fun AsyncClient.writeLine(line: String, charset: Charset = Charsets.UTF_8) = this.write("$line\r\n".toByteArray(charset))
 suspend fun Iterable<AsyncClient>.writeLine(line: String, charset: Charset = Charsets.UTF_8) = asyncFun { for (s in this) s.writeLine(line, charset) }
 
-class TicTacToe(val moveTimeout: TimeSpan = 1.seconds) {
-	val server = AsyncServer()
-	val port = 9090
+class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
+	val server = AsyncServer(port)
 
 	lateinit var connections: AsyncIterator<AsyncClient>
 
-	suspend fun listenConnection() = asyncFun {
+	suspend fun listenConnection() = process {
 		val player = connections.next()
 		player.writeLine("Joined a tic-tac-toe game! Write row and column to place a chip: 00 - 22")
 		player
 	}
 
-	suspend fun server() = asyncFun {
-		connections = server.listen(port).iterator()
+	suspend fun test() = process {
+		val p1 = async { wait(1.seconds) }
+		val p2 = async { wait(1.seconds) }
+	}
+
+	suspend fun wait(time: TimeSpan) = asyncGenerate {
+		for (n in 0 until 10) {
+			sleep(1.seconds)
+			yield("$n")
+		}
+	}
+
+	suspend fun server() = process {
+		connections = server.listen().iterator()
 
 		println("Listening at ... $port")
 
@@ -73,10 +84,10 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds) {
 
 		val board = Board()
 
-		suspend private fun readMove(currentPlayer: AsyncClient) = asyncFun {
+		suspend private fun readMove(currentPlayer: AsyncClient) = process {
 			var pos: Point
 			selectmove@ while (true) {
-				val line = limitedInTime(moveTimeout) { currentPlayer.readLine() }
+				val line = withTimeout(moveTimeout) { currentPlayer.readLine() }
 				try {
 					val x = ("" + line[0]).toInt()
 					val y = ("" + line[1]).toInt()
@@ -95,7 +106,7 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds) {
 			pos
 		}
 
-		suspend fun start() = asyncFun {
+		suspend fun start() = process {
 			players.writeLine("tic-tac-toe: Game started!")
 
 			var result: GameResult
@@ -153,7 +164,7 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds) {
 			arrayListOf(' ', ' ', ' ')
 		)
 
-		suspend fun sendBoard(players: Iterable<AsyncClient>) = asyncFun {
+		suspend fun sendBoard(players: Iterable<AsyncClient>) = process {
 			players.writeLine("---+---+---")
 			for (row in data) {
 				players.writeLine(" " + row.joinToString(" | "))
@@ -170,9 +181,7 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds) {
 		fun hasChipAt(p: Point) = hasChipAt(p.x, p.y)
 
 		fun getAllPositions() = generate {
-			for (y in 0 until 3) for (x in 0 until 3) {
-				yield(Point(x, y))
-			}
+			for (y in 0 until 3) for (x in 0 until 3) yield(Point(x, y))
 		}
 
 		fun getAvailablePositions() = generate {

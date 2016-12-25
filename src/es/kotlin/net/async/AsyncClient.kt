@@ -47,13 +47,16 @@ class AsyncClient(
 
 	fun readStream() = asyncGenerate {
 		while (true) {
-			yield(___read(1)[0])
+			val ba: Any = ___read(1)
+			println("Read: $ba")
+			val c: Any = (ba as ByteArray)[0]
+			yield(c)
 		}
 	}
 
 	suspend fun read(size: Int): ByteArray = asyncFun {
 		val out = ByteArray(size)
-		for (n in 0 until size) out[n] = bytesStream.next()
+		for (n in 0 until size) out[n] = bytesStream.next() as Byte
 		out
 	}
 
@@ -125,20 +128,27 @@ class AsyncClient(
 }
 
 suspend fun AsyncClient.readLine(charset: Charset = Charsets.UTF_8) = asyncFun {
-	val os = ByteArrayOutputStream()
-	// @TODO: optimize this!
-	while (true) {
-		val ba = read(1)
-		os.write(ba[0].toInt())
-		if (ba[0].toChar() == '\n') break
+	try {
+		val os = ByteArrayOutputStream()
+		// @TODO: optimize this!
+		while (true) {
+			val ba = read(1)
+			os.write(ba[0].toInt())
+			if (ba[0].toChar() == '\n') break
+		}
+		val out = os.toByteArray().toString(charset)
+		val res = if (out.endsWith("\r\n")) {
+			out.substring(0, out.length - 2)
+		} else if (out.endsWith("\n")) {
+			out.substring(0, out.length - 1)
+		} else {
+			out
+		}
+		res
+	} catch (e: Throwable) {
+		println("readLine.ERROR: ${e.message}")
+		throw e
+	} finally {
+		println("readLine completed!")
 	}
-	val out = os.toByteArray().toString(charset)
-	val res = if (out.endsWith("\r\n")) {
-		out.substring(0, out.length - 2)
-	} else if (out.endsWith("\n")) {
-		out.substring(0, out.length - 1)
-	} else {
-		out
-	}
-	res
 }

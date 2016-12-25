@@ -1,11 +1,24 @@
 package es.kotlin.async
 
 import es.kotlin.async.coroutine.async
-import es.kotlin.lang.Disposable
+import java.io.Closeable
 import java.util.concurrent.ConcurrentLinkedDeque
 
-object EventLoop {
+open class EventLoop {
 	data class TimerHandler(val time: Long, val handler: () -> Unit)
+
+	companion object {
+		var impl = EventLoop()
+
+		fun mainAsync(routine: suspend () -> Unit): Unit = impl.mainAsync(routine)
+		fun main(entry: (() -> Unit)? = null) = impl.main(entry)
+
+		fun queue(handler: () -> Unit) = impl.queue(handler)
+		fun step() = impl.step()
+		fun setImmediate(handler: () -> Unit) = impl.queue(handler)
+		fun setTimeout(ms: Int, callback: () -> Unit): Closeable = impl.setTimeout(ms, callback)
+		fun setInterval(ms: Int, callback: () -> Unit): Closeable = impl.setInterval(ms, callback)
+	}
 
 	val handlers = ConcurrentLinkedDeque<() -> Unit>()
 	var timerHandlers = ConcurrentLinkedDeque<TimerHandler>()
@@ -26,7 +39,7 @@ object EventLoop {
 		}
 	}
 
-	fun step() {
+	open fun step() {
 		while (handlers.isNotEmpty()) {
 			val handler = handlers.removeFirst()
 			handler?.invoke()
@@ -45,15 +58,34 @@ object EventLoop {
 		timerHandlers = temp
 	}
 
-	fun setImmediate(handler: () -> Unit) {
+	open fun queue(handler: () -> Unit) {
 		handlers += handler
 	}
 
-	fun setTimeout(time: Int, callback: () -> Unit): Disposable {
-		val handler = TimerHandler(System.currentTimeMillis() + time, callback)
+	fun setImmediate(handler: () -> Unit) = queue(handler)
+
+	open fun setTimeout(ms: Int, callback: () -> Unit): Closeable {
+		val handler = TimerHandler(System.currentTimeMillis() + ms, callback)
 		timerHandlers.add(handler)
-		return object : Disposable {
-			override fun dispose(): Unit = run { timerHandlers.remove(handler) }
+		return object : Closeable {
+			override fun close(): Unit = run { timerHandlers.remove(handler) }
+		}
+	}
+
+	open fun setInterval(ms: Int, callback: () -> Unit): Closeable {
+		var ccallback: (() -> Unit)? = null
+		var disposable: Closeable? = null
+
+		ccallback = {
+			callback()
+			disposable = setTimeout(ms, ccallback!!)
+		}
+
+		//ccallback()
+		disposable = setTimeout(ms, ccallback!!)
+
+		return object : Closeable {
+			override fun close(): Unit = run { disposable?.close() }
 		}
 	}
 }

@@ -7,7 +7,7 @@ import es.kotlin.net.async.readLine
 
 // Multi-client telnet chat server using AsyncStream for listening clients
 object ChatServer {
-	val server = AsyncServer()
+	lateinit var server: AsyncServer
 
 	val charset = Charsets.UTF_8
 	var lastClientId = 0L
@@ -31,7 +31,10 @@ object ChatServer {
 		val port = args.getOrNull(0)?.tryInt() ?: 9090
 		println("Preparing telnet chat server...")
 
-		for (me in server.listen(port, started = { println("Listening at $port") })) {
+		server = AsyncServer(port)
+		println("Listening at $port")
+
+		for (me in server.listen()) {
 			val id = lastClientId++
 			clients[id] = me
 			val meSet = setOf(me)

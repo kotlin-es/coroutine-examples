@@ -6,12 +6,12 @@ import kotlin.coroutines.Continuation
 typealias ResolvedHandler<T> = (T) -> Unit
 typealias RejectedHandler = (Throwable) -> Unit
 
-class Promise<T> {
-	class Deferred<T> {
+class Promise<T : Any?> {
+	class Deferred<T : Any?> {
 		val promise = Promise<T>()
 
-		fun resolve(value: T) = promise.complete(value, null)
-		fun reject(error: Throwable) = promise.complete(null, error)
+		fun resolve(value: T): Unit = run { promise.complete(value, null) }
+		fun reject(error: Throwable): Unit = run { promise.complete(null, error) }
 
 		fun onCancel(handler: (Throwable) -> Unit) {
 			promise.cancelHandlers += handler
@@ -86,4 +86,9 @@ class Promise<T> {
 		for (handler in cancelHandlers) handler(reason)
 		complete(null, reason)
 	}
+}
+
+fun <T : Any?> Promise.Deferred<T>.toContinuation(): Continuation<T> = object : Continuation<T> {
+	override fun resume(value: T) = this@toContinuation.resolve(value)
+	override fun resumeWithException(exception: Throwable) = this@toContinuation.reject(exception)
 }

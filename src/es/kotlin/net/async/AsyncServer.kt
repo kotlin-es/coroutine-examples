@@ -8,14 +8,16 @@ import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.CompletionHandler
 import kotlin.coroutines.suspendCoroutine
 
-class AsyncServer {
+class AsyncServer(val local: SocketAddress, val backlog: Int = 128) {
+	constructor(port: Int, host: String = "127.0.0.1") : this(InetSocketAddress(host, port))
+
 	val ssc = AsynchronousServerSocketChannel.open()
 
-	suspend fun listen(port: Int, host: String = "127.0.0.1", started: () -> Unit = {}) = listen(InetSocketAddress(host, port), started)
+	init {
+		ssc.bind(local, backlog)
+	}
 
-	suspend fun listen(local: SocketAddress, started: () -> Unit = {}) = asyncGenerate {
-		ssc.bind(local)
-		started()
+	suspend fun listen() = asyncGenerate {
 		while (true) yield(AsyncClient(ssc.saccept()))
 	}
 

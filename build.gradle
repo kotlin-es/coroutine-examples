@@ -1,0 +1,57 @@
+group 'es.kotlin'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    repositories {
+        mavenLocal()
+        maven { url "http://dl.bintray.com/kotlin/kotlin-eap-1.1" }
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+apply plugin: 'application'
+apply plugin: 'kotlin'
+
+mainClassName = "VertxExample"
+
+compileJava.options.encoding = 'UTF-8'
+compileTestJava.options.encoding = 'UTF-8'
+
+sourceCompatibility = 1.5
+
+sourceSets {
+    main.java.srcDirs = ['src']
+    test.java.srcDirs = ['test']
+    main.resources.srcDirs = ['resources']
+}
+
+repositories {
+    mavenLocal()
+    maven { url "http://dl.bintray.com/kotlin/kotlin-eap-1.1" }
+    mavenCentral()
+}
+
+dependencies {
+    compile "io.vertx:vertx-core:$vertxVersion"
+    compile "io.vertx:vertx-web:$vertxVersion"
+    compile "io.vertx:vertx-redis-client:$vertxVersion"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+    compile "com.google.code.gson:gson:2.2.4"
+
+    testCompile "io.vertx:vertx-unit:3.3.3"
+    testCompile "junit:junit:4.12"
+}
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Gradle Jar File Example',
+                'Implementation-Version': version,
+                'Main-Class': project.mainClassName
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}

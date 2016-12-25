@@ -5,13 +5,14 @@ import es.kotlin.net.async.readLine
 
 // Multi-client echo server using AsyncStream for listening clients
 fun main(args: Array<String>) = EventLoop.mainAsync {
-	val server = AsyncServer()
 	val port = args.getOrNull(0)?.tryInt() ?: 9090
+	val server = AsyncServer(port)
+	println("Listening at $port")
 
 	println("Preparing...")
 	val charset = Charsets.UTF_8
 	var lastClientId = 0
-	for (client in server.listen(port, started = { println("Listening at $port") })) {
+	for (client in server.listen()) {
 		val id = lastClientId++
 		println("Client#$id connected!")
 		try {

@@ -1,7 +1,8 @@
 package es.kotlin.vfs.async
 
-import es.kotlin.async.Promise
-import es.kotlin.async.coroutine.*
+import es.kotlin.async.coroutine.AsyncSequence
+import es.kotlin.async.coroutine.asyncFun
+import es.kotlin.async.coroutine.asyncGenerate
 import java.nio.charset.Charset
 import java.util.*
 
