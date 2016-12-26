@@ -12,14 +12,14 @@ interface Consumer<T> {
 }
 
 interface Producer<T> {
-	suspend fun produce(v: T): Unit
+	fun produce(v: T): Unit
 }
 
 class ProduceConsumer<T> : Consumer<T>, Producer<T> {
 	val items = LinkedList<T>()
 	val consumers = LinkedList<(T) -> Unit>()
 
-	suspend override fun produce(v: T) {
+	override fun produce(v: T) {
 		items.addLast(v)
 		step()
 	}
