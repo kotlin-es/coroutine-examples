@@ -1,7 +1,5 @@
 import es.kotlin.async.EventLoop
-import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.*
-import es.kotlin.async.utils.sleep
 import es.kotlin.collection.coroutine.generate
 import es.kotlin.net.async.AsyncClient
 import es.kotlin.net.async.AsyncServer
@@ -12,7 +10,6 @@ import es.kotlin.time.seconds
 import java.nio.charset.Charset
 import java.util.*
 import java.util.concurrent.TimeoutException
-import kotlin.coroutines.suspendCoroutine
 
 // Example showing how to create a tic-tac-toe server without a explicit state machine
 // Using await-async coroutine as it's state as an implicit (and cool) state machine
@@ -20,30 +17,18 @@ fun main(args: Array<String>) = EventLoop.mainAsync {
 	TicTacToe(moveTimeout = 1.seconds).server()
 }
 
-suspend fun AsyncClient.writeLine(line: String, charset: Charset = Charsets.UTF_8) = this.write("$line\r\n".toByteArray(charset))
-suspend fun Iterable<AsyncClient>.writeLine(line: String, charset: Charset = Charsets.UTF_8) = asyncFun { for (s in this) s.writeLine(line, charset) }
+suspend fun AsyncClient.println(line: String, charset: Charset = Charsets.UTF_8) = this.write("$line\r\n".toByteArray(charset))
+suspend fun Iterable<AsyncClient>.println(line: String, charset: Charset = Charsets.UTF_8) = asyncFun { for (s in this) s.println(line, charset) }
 
 class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 	val server = AsyncServer(port)
 
 	lateinit var connections: AsyncIterator<AsyncClient>
 
-	suspend fun listenConnection() = process {
+	suspend fun readConnection() = process {
 		val player = connections.next()
-		player.writeLine("Joined a tic-tac-toe game! Write row and column to place a chip: 00 - 22")
+		player.println("Joined a tic-tac-toe game! Write row and column to place a chip: 00 - 22")
 		player
-	}
-
-	suspend fun test() = process {
-		val p1 = async { wait(1.seconds) }
-		val p2 = async { wait(1.seconds) }
-	}
-
-	suspend fun wait(time: TimeSpan) = asyncGenerate {
-		for (n in 0 until 10) {
-			sleep(1.seconds)
-			yield("$n")
-		}
 	}
 
 	suspend fun server() = process {
@@ -54,9 +39,9 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 		// Match-making
 		while (true) {
 			try {
-				val player1 = listenConnection()
-				player1.writeLine("Waiting for other player to start!")
-				val player2 = listenConnection()
+				val player1 = readConnection()
+				player1.println("Waiting for other player to start!")
+				val player2 = readConnection()
 				async {
 					// no wait so we continue creating matches while game is running!
 					val result = Match(moveTimeout, player1, player2)
@@ -72,7 +57,7 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 	class Match private constructor(val moveTimeout: TimeSpan, val player1: AsyncClient, val player2: AsyncClient, val dummy: Boolean) {
 		// Trick!
 		companion object {
-			operator suspend fun invoke(moveTimeout: TimeSpan, player1: AsyncClient, player2: AsyncClient) = Match(moveTimeout, player1, player2, true).start()
+			operator suspend fun invoke(moveTimeout: TimeSpan, player1: AsyncClient, player2: AsyncClient) = Match(moveTimeout, player1, player2, true).match()
 		}
 
 		class PlayerInfo(val id: Int, val chip: Char)
@@ -93,29 +78,29 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 					val y = ("" + line[1]).toInt()
 					pos = Point(x, y)
 					if (board.hasChipAt(pos)) {
-						currentPlayer.writeLine("Already has a chip: $pos")
+						currentPlayer.println("Already has a chip: $pos")
 						continue
 					} else {
 						break@selectmove
 					}
 				} catch (e: Throwable) {
-					currentPlayer.writeLine("ERROR: ${e.javaClass}: ${e.message}")
+					currentPlayer.println("ERROR: ${e.javaClass}: ${e.message}")
 					e.printStackTrace()
 				}
 			}
 			pos
 		}
 
-		suspend fun start() = process {
-			players.writeLine("tic-tac-toe: Game started!")
+		suspend fun match() = process {
+			players.println("tic-tac-toe: Game started!")
 
 			var result: GameResult
 
 			ingame@ while (true) {
-				players.writeLine("Turn: $turn")
-				board.sendBoard(players)
+				players.println("Turn: $turn")
+				board.sendBoardTo(players)
 				val currentPlayer = players[turn % players.size]
-				currentPlayer.writeLine("Your turn! You have $moveTimeout to move, or a move will perform automatically!")
+				currentPlayer.println("Your turn! You have $moveTimeout to move, or a move will perform automatically!")
 
 				val pos = try {
 					readMove(currentPlayer)
@@ -123,7 +108,7 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 					board.getOneAvailablePositions()
 				}
 
-				currentPlayer.writeLine("Placed at $pos!")
+				currentPlayer.println("Placed at $pos!")
 				board[pos] = currentPlayer.info().chip
 
 				result = board.checkResult()
@@ -133,14 +118,14 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 						continue@ingame
 					}
 					is GameResult.Draw, is GameResult.Win -> {
-						board.sendBoard(players)
-						players.writeLine("$result")
+						board.sendBoardTo(players)
+						players.println("$result")
 						break@ingame
 					}
 				}
 			}
 
-			players.writeLine("End of game!")
+			players.println("End of game!")
 			for (player in players) {
 				try {
 					player.close()
@@ -164,11 +149,11 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 			arrayListOf(' ', ' ', ' ')
 		)
 
-		suspend fun sendBoard(players: Iterable<AsyncClient>) = process {
-			players.writeLine("---+---+---")
+		suspend fun sendBoardTo(players: Iterable<AsyncClient>) = process {
+			players.println("---+---+---")
 			for (row in data) {
-				players.writeLine(" " + row.joinToString(" | "))
-				players.writeLine("---+---+---")
+				players.println(" " + row.joinToString(" | "))
+				players.println("---+---+---")
 			}
 		}
 

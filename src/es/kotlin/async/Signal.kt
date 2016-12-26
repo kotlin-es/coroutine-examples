@@ -1,7 +1,7 @@
 package es.kotlin.async
 
 class Signal<T> {
-	private val handlers = arrayListOf<(T) -> Unit>()
+	internal val handlers = arrayListOf<(T) -> Unit>()
 
 	fun add(handler: (T) -> Unit) {
 		handlers += handler
@@ -13,3 +13,5 @@ class Signal<T> {
 
 	operator fun invoke(value: (T) -> Unit) = add(value)
 }
+
+operator fun Signal<Unit>.invoke() = invoke(Unit)
