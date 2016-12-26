@@ -14,7 +14,7 @@ import java.util.concurrent.TimeoutException
 // Example showing how to create a tic-tac-toe server without a explicit state machine
 // Using await-async coroutine as it's state as an implicit (and cool) state machine
 fun main(args: Array<String>) = EventLoop.mainAsync {
-	TicTacToe(moveTimeout = 1.seconds).server()
+	TicTacToe(moveTimeout = 10.seconds).server()
 }
 
 suspend fun AsyncClient.println(line: String, charset: Charset = Charsets.UTF_8) = this.write("$line\r\n".toByteArray(charset))
@@ -72,7 +72,7 @@ class TicTacToe(val moveTimeout: TimeSpan = 1.seconds, val port: Int = 9090) {
 		suspend private fun readMove(currentPlayer: AsyncClient) = process {
 			var pos: Point
 			selectmove@ while (true) {
-				val line = withTimeout(moveTimeout) { currentPlayer.readLine() }
+				val line = withTimeout(moveTimeout) { currentPlayer.readLine(this@withTimeout) }
 				try {
 					val x = ("" + line[0]).toInt()
 					val y = ("" + line[1]).toInt()

@@ -3,8 +3,10 @@ package es.kotlin.async.coroutine
 import es.kotlin.async.EventLoop
 import es.kotlin.async.Promise
 import es.kotlin.async.Signal
+import es.kotlin.async.invoke
 import es.kotlin.lang.Once
 import es.kotlin.time.TimeSpan
+import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeoutException
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.startCoroutine
@@ -41,23 +43,22 @@ suspend fun <T : Any?> awaitTask(callback: () -> T): T = suspendCoroutine { c ->
 	}.start()
 }
 
-suspend fun <T> withTimeout(timeout: TimeSpan, callback: suspend () -> T) = suspendCoroutine<T> { c ->
+suspend fun <T> withTimeout(timeout: TimeSpan, callback: suspend CancelHandler.() -> T) = suspendCoroutine<T> { c ->
 	val once = Once()
+
+	val cancelHandler = CancelHandler()
 
 	val closeable = EventLoop.setTimeout(timeout.milliseconds.toInt()) {
 		once {
-			println("Resume with timeout exception")
-			EventLoop.setImmediate {
-				c.resumeWithException(TimeoutException())
-			}
+			cancelHandler()
+			c.resumeWithException(TimeoutException())
 		}
 	}
 
-	callback.startCoroutine(object : Continuation<T> {
+	callback.startCoroutine(cancelHandler, object : Continuation<T> {
 		override fun resume(value: T) {
 			once {
 				closeable.close()
-				println("Resume with value: $value")
 				EventLoop.setImmediate {
 					c.resume(value)
 				}
@@ -67,7 +68,6 @@ suspend fun <T> withTimeout(timeout: TimeSpan, callback: suspend () -> T) = susp
 		override fun resumeWithException(exception: Throwable) {
 			once {
 				closeable.close()
-				println("Resume with exception: $exception")
 				EventLoop.setImmediate {
 					c.resumeWithException(exception)
 				}

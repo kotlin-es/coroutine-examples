@@ -1,7 +1,10 @@
 package es.kotlin.net.async
 
+import es.kotlin.async.Signal
+import es.kotlin.async.coroutine.CancelHandler
 import es.kotlin.async.coroutine.asyncFun
 import es.kotlin.async.coroutine.asyncGenerate
+import es.kotlin.async.coroutine.asyncProducer
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.SocketAddress
@@ -10,6 +13,7 @@ import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.CompletionHandler
 import java.nio.charset.Charset
 import java.util.*
+import kotlin.coroutines.startCoroutine
 import kotlin.coroutines.suspendCoroutine
 
 class AsyncClient(
@@ -39,24 +43,28 @@ class AsyncClient(
 	}
 
 	val connected: Boolean get() = this._connected
-	val bytesStream = readStream().iterator()
+	val bytesStream = readStream()
 
-	//fun getAsyncStream(): Stream<ByteArray> {
-	//Stream.
-	//}
-
-	fun readStream() = asyncGenerate {
-		while (true) {
-			val ba: Any = ___read(1)
-			println("Read: $ba")
-			val c: Any = (ba as ByteArray)[0]
-			yield(c)
+	fun readStream() = asyncProducer {
+		try {
+			while (true) {
+				val c: Any = ___read(1)[0]
+				produce(c)
+			}
+		} catch (e: Throwable) {
+			e.printStackTrace()
 		}
+	}
+
+	suspend fun read(size: Int, cancelHandler: CancelHandler): ByteArray = asyncFun {
+		val out = ByteArray(size)
+		for (n in 0 until size) out[n] = bytesStream.consumeWithCancelHandler(cancelHandler) as Byte
+		out
 	}
 
 	suspend fun read(size: Int): ByteArray = asyncFun {
 		val out = ByteArray(size)
-		for (n in 0 until size) out[n] = bytesStream.next() as Byte
+		for (n in 0 until size) out[n] = bytesStream.consume() as Byte
 		out
 	}
 
@@ -67,16 +75,13 @@ class AsyncClient(
 		sc.read(buffer, this, object : CompletionHandler<Int, AsyncClient> {
 			override fun completed(result: Int, attachment: AsyncClient): Unit = run {
 				if (result < 0) {
-					println("___read.completed.Resume: EOF")
 					c.resumeWithException(RuntimeException("EOF"))
 				} else {
-					println("___read.completed..Resume: $out")
 					c.resume(Arrays.copyOf(out, result))
 				}
 			}
 
 			override fun failed(exc: Throwable, attachment: AsyncClient): Unit = run {
-				println("___read.failed.Resume: $exc")
 				c.resumeWithException(exc)
 			}
 		})
@@ -150,5 +155,28 @@ suspend fun AsyncClient.readLine(charset: Charset = Charsets.UTF_8) = asyncFun {
 		throw e
 	} finally {
 		println("readLine completed!")
+	}
+}
+
+suspend fun AsyncClient.readLine(cancelHandler: CancelHandler, charset: Charset = Charsets.UTF_8) = asyncFun {
+	try {
+		val os = ByteArrayOutputStream()
+		// @TODO: optimize this!
+		while (true) {
+			val ba = read(1, cancelHandler)
+			os.write(ba[0].toInt())
+			if (ba[0].toChar() == '\n') break
+		}
+		val out = os.toByteArray().toString(charset)
+		val res = if (out.endsWith("\r\n")) {
+			out.substring(0, out.length - 2)
+		} else if (out.endsWith("\n")) {
+			out.substring(0, out.length - 1)
+		} else {
+			out
+		}
+		res
+	} finally {
+		//println("readLine completed!")
 	}
 }
