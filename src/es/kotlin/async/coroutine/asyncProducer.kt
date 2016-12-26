@@ -21,10 +21,10 @@ class ProduceConsumer<T> : Consumer<T>, Producer<T> {
 
 	override fun produce(v: T) {
 		items.addLast(v)
-		step()
+		flush()
 	}
 
-	private fun step() {
+	private fun flush() {
 		while (items.isNotEmpty() && consumers.isNotEmpty()) {
 			val consumer = consumers.removeFirst()
 			val item = items.removeFirst()
@@ -34,7 +34,7 @@ class ProduceConsumer<T> : Consumer<T>, Producer<T> {
 
 	suspend override fun consume(): T = suspendCoroutine { c ->
 		consumers += { c.resume(it) }
-		step()
+		flush()
 	}
 
 	suspend override fun consumeWithCancelHandler(cancel: CancelHandler): T = suspendCoroutine { c ->
@@ -44,7 +44,7 @@ class ProduceConsumer<T> : Consumer<T>, Producer<T> {
 			c.resumeWithException(CancellationException())
 		}
 		consumers += consumer
-		step()
+		flush()
 	}
 
 }
