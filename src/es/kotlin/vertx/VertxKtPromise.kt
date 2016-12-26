@@ -60,6 +60,11 @@ fun <T : Any?> Promise.Deferred<T>.toVertxHandler(): Handler<AsyncResult<T>> {
 	}
 }
 
+
+// Suggested by Roman Elizarov @ kotlinlang slack #coroutines 22nd december 2016:
+// Roman Elizarov [JB] [3:51 PM]
+// Why do you care about alloc? It an sync call. Its cost is already much higher than even a few extra objects.
+// `vx { doSomeVertexOperation(args, it) }`
 inline suspend fun <T> vx(crossinline callback: (Handler<AsyncResult<T>>) -> Unit) = suspendCoroutine<T> { c ->
 	callback(object : Handler<AsyncResult<T>> {
 		override fun handle(event: AsyncResult<T>) {
