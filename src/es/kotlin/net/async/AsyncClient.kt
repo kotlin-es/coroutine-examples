@@ -1,10 +1,7 @@
 package es.kotlin.net.async
 
 import es.kotlin.async.Signal
-import es.kotlin.async.coroutine.CancelHandler
-import es.kotlin.async.coroutine.asyncFun
-import es.kotlin.async.coroutine.asyncGenerate
-import es.kotlin.async.coroutine.asyncProducer
+import es.kotlin.async.coroutine.*
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.SocketAddress
@@ -45,10 +42,10 @@ class AsyncClient(
 	val connected: Boolean get() = this._connected
 	val bytesStream = readStream()
 
-	fun readStream() = asyncProducer {
+	fun readStream(): Consumer<Byte> = asyncProducer {
 		try {
 			while (true) {
-				val c: Any = ___read(1)[0]
+				val c = ___read(1)[0]
 				produce(c)
 			}
 		} catch (e: Throwable) {

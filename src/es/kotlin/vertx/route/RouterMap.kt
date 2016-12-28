@@ -3,7 +3,7 @@ package es.kotlin.vertx.route
 import es.kotlin.async.Promise
 import es.kotlin.async.coroutine.async
 import es.kotlin.async.coroutine.await
-import es.kotlin.async.toContinuation
+import es.kotlin.async.coroutine.invokeSuspend
 import es.kotlin.di.AsyncInjector
 import ext.lang.DynamicConvert
 import io.netty.handler.codec.http.QueryStringDecoder
@@ -12,7 +12,6 @@ import io.vertx.core.json.Json
 import io.vertx.ext.web.Router
 import java.lang.reflect.InvocationTargetException
 import kotlin.coroutines.Continuation
-import kotlin.coroutines.CoroutineIntrinsics
 
 annotation class Route(val method: HttpMethod, val path: String)
 
@@ -47,7 +46,6 @@ fun Router.registerRouterAsync(injector: AsyncInjector, clazz: Class<*>): Promis
 
 				async {
 					try {
-						var deferred: Promise.Deferred<Any>? = null
 						val args = arrayListOf<Any?>()
 						for ((paramType, annotations) in method.parameterTypes.zip(method.parameterAnnotations)) {
 							val get = annotations.filterIsInstance<Param>().firstOrNull()
@@ -59,27 +57,19 @@ fun Router.registerRouterAsync(injector: AsyncInjector, clazz: Class<*>): Promis
 								val result = postParams[post.name]?.firstOrNull()
 								args += DynamicConvert(result, paramType)
 							} else if (Continuation::class.java.isAssignableFrom(paramType)) {
-								deferred = Promise.Deferred<Any>()
-								args += deferred.toContinuation()
+								//deferred = Promise.Deferred<Any>()
+								//args += deferred.toContinuation()
 							} else {
 								throw RuntimeException("Expected @Get annotation")
 							}
 						}
 
-						val result = method.invoke(instance, *args.toTypedArray())
+						val result = method.invokeSuspend(instance, args)
 
-						if (result != CoroutineIntrinsics.SUSPENDED && deferred != null) {
-							deferred.resolve(result)
-						}
-
-						val finalResult = if (deferred != null) {
-							await(deferred.promise)
+						val finalResult = if (result is Promise<*>) {
+							await(result)
 						} else {
-							if (result is Promise<*>) {
-								await(result)
-							} else {
-								result
-							}
+							result
 						}
 
 						when (finalResult) {
